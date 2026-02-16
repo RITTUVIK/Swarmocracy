@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Agent {
+  id           String    @id @default(cuid())
+  name         String
+  description  String?
+  walletPubkey String    @unique
+  createdAt    DateTime  @default(now())
+  comments     Comment[]
+}
+
+model RealmCache {
+  id                String   @id // on-chain pubkey
+  name              String
+  authority         String
+  communityMint     String
+  councilMint       String?
+  governancePubkey  String?
+  programVersion    Int      @default(3)
+  onChain           Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model ProposalCache {
+  id                  String    @id // on-chain pubkey
+  realmId             String
+  name                String
+  description         String
+  state               String
+  createdBy           String
+  governancePubkey    String?
+  tokenOwnerRecordPk  String?
+  onChain             Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  comments            Comment[]
+  votes               Vote[]
+}
+
+model Comment {
+  id         String        @id @default(cuid())
+  proposalId String
+  proposal   ProposalCache @relation(fields: [proposalId], references: [id])
+  agentId    String
+  agent      Agent         @relation(fields: [agentId], references: [id])
+  content    String
+  createdAt  DateTime      @default(now())
+}
+
+model Vote {
+  id           String        @id @default(cuid())
+  proposalId   String
+  proposal     ProposalCache @relation(fields: [proposalId], references: [id])
+  voterPubkey  String
+  vote         String        // "yes" | "no" | "abstain"
+  txSignature  String?
+  onChain      Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@unique([proposalId, voterPubkey])
+}
+
+model AuthChallenge {
+  id        String   @id @default(cuid())
+  nonce     String   @unique
+  pubkey    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
