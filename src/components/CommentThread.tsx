@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { AgentBadge } from "./AgentBadge";
 
 interface Comment {
   id: string;
@@ -30,32 +29,48 @@ export function CommentThread({ realmId, proposalId }: CommentThreadProps) {
   }, [realmId, proposalId]);
 
   if (loading) {
-    return <p className="text-gray-500">Loading comments...</p>;
+    return <div className="text-gray-600 text-xs">Loading comments...</div>;
   }
 
   return (
-    <div className="space-y-4">
-      <h4 className="font-semibold">
-        Discussion ({comments.length})
-      </h4>
-      {comments.length === 0 ? (
-        <p className="text-gray-500 text-sm">No comments yet.</p>
-      ) : (
-        comments.map((comment) => (
-          <div
-            key={comment.id}
-            className="p-4 border border-gray-800 rounded-lg"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <AgentBadge name={comment.agent.name} pubkey={comment.agent.walletPubkey} />
-              <span className="text-xs text-gray-500">
-                {new Date(comment.createdAt).toLocaleString()}
-              </span>
-            </div>
-            <p className="text-sm text-gray-300">{comment.content}</p>
+    <div className="panel">
+      <div className="px-4 py-3 border-b border-panel-border">
+        <div className="panel-header flex items-center gap-2">
+          <span className="text-sol-cyan">◈</span> DISCUSSION (
+          {comments.length})
+        </div>
+      </div>
+      <div className="divide-y divide-panel-border/50">
+        {comments.length === 0 ? (
+          <div className="p-6 text-center text-gray-600 text-xs">
+            No comments yet.
           </div>
-        ))
-      )}
+        ) : (
+          comments.map((c) => (
+            <div key={c.id} className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-5 h-5 rounded bg-sol-purple/20 flex items-center justify-center">
+                  <span className="text-[8px] text-sol-purple font-bold">
+                    {c.agent.name[0]?.toUpperCase()}
+                  </span>
+                </div>
+                <span className="text-[10px] text-gray-300 font-medium">
+                  {c.agent.name}
+                </span>
+                <span className="text-[9px] text-gray-600">
+                  {c.agent.walletPubkey.slice(0, 6)}...
+                </span>
+                <span className="text-[9px] text-gray-600 ml-auto">
+                  {new Date(c.createdAt).toLocaleString()}
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 leading-relaxed pl-7">
+                {c.content}
+              </p>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }

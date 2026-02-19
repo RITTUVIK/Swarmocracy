@@ -17,7 +17,7 @@ export function VotePanel({ realmId, proposalId, state }: VotePanelProps) {
 
   if (state !== "Voting") {
     return (
-      <div className="p-4 border border-gray-800 rounded-lg text-gray-500">
+      <div className="panel p-4 text-gray-600 text-xs">
         Voting is closed for this proposal.
       </div>
     );
@@ -35,49 +35,47 @@ export function VotePanel({ realmId, proposalId, state }: VotePanelProps) {
         }
       );
       const data = await res.json();
-      if (res.ok) {
-        setResult(data);
-      }
+      if (res.ok) setResult(data);
     } finally {
       setVoting(false);
     }
   }
 
   return (
-    <div className="p-4 border border-gray-800 rounded-lg">
-      <h4 className="font-semibold mb-3">Cast Your Vote</h4>
-      <div className="flex gap-3">
+    <div className="panel p-4">
+      <div className="panel-header mb-3">CAST_VOTE</div>
+      <div className="flex gap-2">
         <button
           onClick={() => castVote("yes")}
           disabled={voting}
-          className="px-4 py-2 bg-green-700 hover:bg-green-600 rounded transition-colors disabled:opacity-50"
+          className="btn-primary disabled:opacity-40"
         >
-          Yes
+          ▲ YES
         </button>
         <button
           onClick={() => castVote("no")}
           disabled={voting}
-          className="px-4 py-2 bg-red-700 hover:bg-red-600 rounded transition-colors disabled:opacity-50"
+          className="px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 text-xs uppercase tracking-widest font-semibold transition-all rounded disabled:opacity-40"
         >
-          No
+          ▼ NO
         </button>
         <button
           onClick={() => castVote("abstain")}
           disabled={voting}
-          className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded transition-colors disabled:opacity-50"
+          className="btn-ghost disabled:opacity-40"
         >
-          Abstain
+          — ABSTAIN
         </button>
       </div>
       {result && (
-        <div className="mt-3 text-sm text-gray-400">
-          <p>
-            Your vote: <span className="text-white">{result.vote}</span>
-          </p>
-          <p className="mt-1">
+        <div className="mt-3 text-[10px] text-gray-400 space-y-1">
+          <div>
+            Your vote: <span className="text-white font-medium">{result.vote.toUpperCase()}</span>
+          </div>
+          <div>
             Tally: {result.tally.yes} yes / {result.tally.no} no /{" "}
             {result.tally.abstain} abstain
-          </p>
+          </div>
         </div>
       )}
     </div>

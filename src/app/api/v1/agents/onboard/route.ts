@@ -50,6 +50,11 @@ export async function POST(request: Request) {
       airdropSignature = null;
     }
 
+    try {
+      const { logProtocolEvent } = await import("@/lib/execution");
+      await logProtocolEvent("AGENT_JOIN", `${name} (${publicKey.slice(0, 8)}...) connected to Hive`);
+    } catch {}
+
     return NextResponse.json(
       {
         agent: {

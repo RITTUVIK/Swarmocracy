@@ -87,6 +87,12 @@ export async function POST(
       },
     });
 
+    const { logProtocolEvent } = await import("@/lib/execution");
+    await logProtocolEvent(
+      "AGENT_VOTE",
+      `${pubkey.slice(0, 8)}... voted ${vote.toUpperCase()} on ${params.pid.slice(0, 8)}...`
+    );
+
     // Tally from DB
     const votes = await prisma.vote.findMany({
       where: { proposalId: params.pid },
@@ -95,6 +101,31 @@ export async function POST(
     const tally = { yes: 0, no: 0, abstain: 0 };
     for (const v of votes) {
       tally[v.vote as keyof typeof tally]++;
+    }
+
+    // Auto-finalize: check if threshold reached (>=3 votes and >60% yes)
+    const totalVotes = votes.length;
+    if (totalVotes >= 3 && proposal.state === "Voting") {
+      const yesPct = (tally.yes / totalVotes) * 100;
+      if (yesPct >= 60) {
+        await prisma.proposalCache.update({
+          where: { id: params.pid },
+          data: { state: "Succeeded" },
+        });
+        await logProtocolEvent(
+          "TX_CONFIRM",
+          `Proposal ${params.pid.slice(0, 8)}... passed with ${yesPct.toFixed(0)}% approval`
+        );
+      } else if (((tally.no / totalVotes) * 100) > 40) {
+        await prisma.proposalCache.update({
+          where: { id: params.pid },
+          data: { state: "Defeated" },
+        });
+        await logProtocolEvent(
+          "TX_CONFIRM",
+          `Proposal ${params.pid.slice(0, 8)}... defeated with ${yesPct.toFixed(0)}% approval`
+        );
+      }
     }
 
     return NextResponse.json({

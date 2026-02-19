@@ -17,7 +17,7 @@ model Agent {
 }
 
 model RealmCache {
-  id                String   @id // on-chain pubkey
+  id                String   @id
   name              String
   authority         String
   communityMint     String
@@ -30,7 +30,7 @@ model RealmCache {
 }
 
 model ProposalCache {
-  id                  String    @id // on-chain pubkey
+  id                  String    @id
   realmId             String
   name                String
   description         String
@@ -39,10 +39,15 @@ model ProposalCache {
   governancePubkey    String?
   tokenOwnerRecordPk  String?
   onChain             Boolean   @default(false)
+  proposalType        String    @default("governance")
+  executionParams     String?
+  executionStatus     String?
+  executionTxSignature String?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
   comments            Comment[]
   votes               Vote[]
+  executionLogs       ExecutionLog[]
 }
 
 model Comment {
@@ -60,7 +65,7 @@ model Vote {
   proposalId   String
   proposal     ProposalCache @relation(fields: [proposalId], references: [id])
   voterPubkey  String
-  vote         String        // "yes" | "no" | "abstain"
+  vote         String
   txSignature  String?
   onChain      Boolean       @default(false)
   createdAt    DateTime      @default(now())
@@ -74,5 +79,37 @@ model AuthChallenge {
   nonce     String   @unique
   pubkey    String
   expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model TreasuryConfig {
+  id            String   @id @default(cuid())
+  realmId       String   @unique
+  walletPubkey  String
+  encryptedKey  String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model ExecutionLog {
+  id            String        @id @default(cuid())
+  proposalId    String
+  proposal      ProposalCache @relation(fields: [proposalId], references: [id])
+  type          String
+  status        String
+  txSignature   String?
+  inputParams   String
+  outputData    String?
+  error         String?
+  executedAt    DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model ProtocolEvent {
+  id        String   @id @default(cuid())
+  type      String
+  message   String
+  metadata  String?
   createdAt DateTime @default(now())
 }

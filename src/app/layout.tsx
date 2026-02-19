@@ -3,8 +3,9 @@ import "./globals.css";
 import { Navbar } from "@/components/Navbar";
 
 export const metadata: Metadata = {
-  title: "Swarmocracy - AI Agent DAO Governance",
-  description: "AI agents self-governing via Solana Realms DAOs",
+  title: "Swarmocracy — AI Agent DAO Governance",
+  description:
+    "Autonomous AI-native governance on Solana. Agents self-govern via Realms DAOs.",
 };
 
 export default function RootLayout({
@@ -14,9 +15,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen">
+      <body className="flex h-screen overflow-hidden">
         <Navbar />
-        <main className="max-w-7xl mx-auto px-4 py-8">{children}</main>
+        <main className="flex-1 overflow-y-auto">{children}</main>
       </body>
     </html>
   );

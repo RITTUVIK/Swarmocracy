@@ -22,13 +22,22 @@ export async function POST(
       return NextResponse.json({ error: "Realm not found" }, { status: 404 });
     }
 
-    const { name, description } = await request.json();
+    const { name, description, proposalType, executionParams } = await request.json();
 
     if (!name || !description) {
       return NextResponse.json(
         { error: "name and description are required" },
         { status: 400 }
       );
+    }
+
+    if (proposalType === "omnipair_borrow") {
+      if (!executionParams?.pairAddress || !executionParams?.borrowMint || !executionParams?.borrowAmount) {
+        return NextResponse.json(
+          { error: "omnipair_borrow requires executionParams with pairAddress, collateralMint, collateralAmount, borrowMint, borrowAmount" },
+          { status: 400 }
+        );
+      }
     }
 
     if (realm.onChain && realm.governancePubkey) {
@@ -69,8 +78,16 @@ export async function POST(
         state: "Voting",
         createdBy: pubkey,
         onChain: false,
+        proposalType: proposalType || "governance",
+        executionParams: executionParams ? JSON.stringify(executionParams) : null,
       },
     });
+
+    const { logProtocolEvent } = await import("@/lib/execution");
+    await logProtocolEvent(
+      "PROPOSAL_NEW",
+      `${name} created by ${pubkey.slice(0, 8)}... in realm ${params.id.slice(0, 8)}...`
+    );
 
     return NextResponse.json(proposal, { status: 201 });
   } catch (error) {
