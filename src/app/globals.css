@@ -2,102 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap");
-
 * {
   box-sizing: border-box;
 }
 
 body {
-  @apply bg-surface text-gray-200 font-mono;
+  @apply bg-black text-gray-200;
   -webkit-font-smoothing: antialiased;
 }
 
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1a1f2e;
-  border-radius: 2px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #2a3040;
-}
-
-@layer components {
-  .panel {
-    @apply bg-panel border border-panel-border rounded-md;
-  }
-  .panel-header {
-    @apply text-[10px] uppercase tracking-[0.2em] text-gray-500 font-semibold;
-  }
-  .stat-value {
-    @apply text-2xl font-bold text-white tracking-tight;
-  }
-  .stat-delta-up {
-    @apply text-sol-green text-[10px] font-medium;
-  }
-  .stat-delta-down {
-    @apply text-red-400 text-[10px] font-medium;
-  }
-  .badge {
-    @apply text-[9px] uppercase tracking-widest px-2 py-0.5 rounded font-semibold;
-  }
-  .badge-green {
-    @apply badge bg-sol-green/15 text-sol-green border border-sol-green/30;
-  }
-  .badge-purple {
-    @apply badge bg-sol-purple/15 text-sol-purple border border-sol-purple/30;
-  }
-  .badge-yellow {
-    @apply badge bg-yellow-500/15 text-yellow-400 border border-yellow-500/30;
-  }
-  .badge-red {
-    @apply badge bg-red-500/15 text-red-400 border border-red-500/30;
-  }
-  .badge-cyan {
-    @apply badge bg-sol-cyan/15 text-sol-cyan border border-sol-cyan/30;
-  }
-  .badge-gray {
-    @apply badge bg-gray-700/40 text-gray-400 border border-gray-600/30;
-  }
-  .btn-primary {
-    @apply px-4 py-2 bg-sol-green/10 text-sol-green border border-sol-green/30
-           hover:bg-sol-green/20 text-xs uppercase tracking-widest font-semibold
-           transition-all rounded;
-  }
-  .btn-ghost {
-    @apply px-4 py-2 text-gray-400 border border-panel-border
-           hover:border-gray-500 hover:text-white text-xs uppercase tracking-widest
-           font-semibold transition-all rounded;
-  }
-  .input-field {
-    @apply bg-panel border border-panel-border rounded px-3 py-2 text-xs text-gray-300
-           placeholder-gray-600 focus:border-sol-cyan/50 focus:outline-none transition-colors;
-  }
-  .select-field {
-    @apply bg-panel border border-panel-border rounded px-3 py-2 text-xs text-gray-300
-           focus:border-sol-cyan/50 focus:outline-none transition-colors appearance-none;
-  }
-}
-
-.glow-green {
-  box-shadow: 0 0 8px rgba(20, 241, 149, 0.15);
-}
-.glow-purple {
-  box-shadow: 0 0 8px rgba(153, 69, 255, 0.15);
-}
-.glow-cyan {
-  box-shadow: 0 0 8px rgba(0, 212, 255, 0.15);
-}
-
-.text-glow-green {
-  text-shadow: 0 0 8px rgba(20, 241, 149, 0.4);
-}
-.text-glow-cyan {
-  text-shadow: 0 0 8px rgba(0, 212, 255, 0.4);
+  background: #333;
+  border-radius: 3px;
 }

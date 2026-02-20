@@ -19,7 +19,8 @@ export async function GET(
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json({ ...realm, proposals });
+    const { authoritySecret, ...safeRealm } = realm;
+    return NextResponse.json({ ...safeRealm, proposals });
   } catch (error) {
     console.error("Get realm error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

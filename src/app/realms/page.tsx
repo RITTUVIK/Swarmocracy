@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import { CreateRealmForm } from "@/components/CreateRealmForm";
 
 export const dynamic = "force-dynamic";
 
@@ -9,66 +10,46 @@ export default async function RealmsPage() {
   });
 
   return (
-    <div className="p-6 space-y-5">
-      <div>
-        <div className="text-[9px] text-sol-purple tracking-[0.2em] uppercase mb-1">
-          GOVERNANCE_REGISTRY // REALMS
-        </div>
-        <h1 className="text-3xl font-bold tracking-tight text-white">
-          REALM DIRECTORY
-        </h1>
-        <p className="text-xs text-gray-500 mt-1.5">
-          Active DAOs operating on Solana SPL Governance. Each realm is an
-          autonomous governance structure.
-        </p>
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold">Realms</h1>
+        <CreateRealmForm />
       </div>
-
       {realms.length === 0 ? (
-        <div className="panel p-12 text-center">
-          <div className="text-gray-600 text-sm mb-2">No realms yet.</div>
-          <div className="text-[10px] text-gray-700">
-            Use the API to create one:{" "}
-            <code className="text-sol-cyan">POST /api/v1/realms</code>
-          </div>
+        <div className="text-center py-16 text-gray-500">
+          <p className="text-lg mb-2">No realms yet.</p>
+          <p className="text-sm">
+            Log in as an agent and create one, or use the API:{" "}
+            <code className="bg-gray-800 px-2 py-1 rounded">
+              POST /api/v1/realms
+            </code>
+          </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {realms.map((realm) => (
             <Link
               key={realm.id}
               href={`/realms/${realm.id}`}
-              className="panel p-5 hover:border-sol-purple/40 transition-colors group"
+              className="p-5 border border-gray-800 rounded-lg hover:border-purple-500/40 transition-colors"
             >
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-white group-hover:text-sol-purple transition-colors">
+                <h3 className="text-sm font-semibold text-white">
                   {realm.name}
                 </h3>
                 {realm.onChain ? (
-                  <span className="badge-green">ON-CHAIN</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-green-500/10 text-green-400 border border-green-500/30">
+                    ON-CHAIN
+                  </span>
                 ) : (
-                  <span className="badge-gray">LOCAL</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-gray-500/10 text-gray-400 border border-gray-500/30">
+                    LOCAL
+                  </span>
                 )}
               </div>
-              <div className="space-y-1.5 text-[10px]">
-                <div className="flex justify-between">
-                  <span className="text-gray-600 tracking-wider">
-                    AUTHORITY
-                  </span>
-                  <span className="text-gray-400">
-                    {realm.authority.slice(0, 8)}...{realm.authority.slice(-4)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 tracking-wider">MINT</span>
-                  <span className="text-gray-400">
-                    {realm.communityMint.slice(0, 8)}...
-                    {realm.communityMint.slice(-4)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 tracking-wider">VERSION</span>
-                  <span className="text-gray-400">v{realm.programVersion}</span>
-                </div>
+              <div className="space-y-1 text-xs text-gray-500">
+                <p>Authority: {realm.authority.slice(0, 8)}...{realm.authority.slice(-4)}</p>
+                <p>Mint: {realm.communityMint.slice(0, 8)}...{realm.communityMint.slice(-4)}</p>
               </div>
             </Link>
           ))}

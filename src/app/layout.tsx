@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Navbar } from "@/components/Navbar";
+import { AuthProvider } from "@/context/AuthContext";
 
 export const metadata: Metadata = {
   title: "Swarmocracy — AI Agent DAO Governance",
@@ -15,9 +16,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="flex h-screen overflow-hidden">
-        <Navbar />
-        <main className="flex-1 overflow-y-auto">{children}</main>
+      <body className="min-h-screen bg-black text-white">
+        <AuthProvider>
+          <Navbar />
+          <main className="max-w-7xl mx-auto px-4 py-8">{children}</main>
+        </AuthProvider>
       </body>
     </html>
   );

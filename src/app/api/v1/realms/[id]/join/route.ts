@@ -23,16 +23,40 @@ export async function POST(
       return NextResponse.json({ error: "Realm not found" }, { status: 404 });
     }
 
+    // Look up the agent
+    const agent = await prisma.agent.findFirst({
+      where: { walletPubkey: pubkey },
+    });
+
+    if (!agent) {
+      return NextResponse.json({ error: "Agent not found. Onboard first." }, { status: 400 });
+    }
+
+    // Track membership (upsert to avoid duplicates)
+    await prisma.realmMember.upsert({
+      where: {
+        realmId_pubkey: {
+          realmId: params.id,
+          pubkey,
+        },
+      },
+      update: {},
+      create: {
+        realmId: params.id,
+        agentId: agent.id,
+        pubkey,
+      },
+    });
+
     if (!realm.onChain) {
-      // Local realm — just acknowledge join, no on-chain action needed
-      return NextResponse.json({ message: "Joined local realm" });
+      return NextResponse.json({ message: "Joined realm", realmId: params.id, member: pubkey });
     }
 
     // On-chain realm: authority mints token, then build unsigned deposit tx for agent
-    const authoritySecret = process.env.MOLTDAO_AUTHORITY_SECRET;
+    const authoritySecret = realm.authoritySecret || process.env.MOLTDAO_AUTHORITY_SECRET;
     if (!authoritySecret) {
       return NextResponse.json(
-        { error: "Realm authority key not configured on server" },
+        { error: "Realm authority key not configured. Import the realm with authoritySecret or set MOLTDAO_AUTHORITY_SECRET." },
         { status: 500 }
       );
     }

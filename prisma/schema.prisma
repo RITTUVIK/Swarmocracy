@@ -25,6 +25,7 @@ model RealmCache {
   governancePubkey  String?
   programVersion    Int      @default(3)
   onChain           Boolean  @default(false)
+  authoritySecret   String?  // base58 secret key of the mint authority (for minting governance tokens on join)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }
@@ -72,6 +73,16 @@ model Vote {
   updatedAt    DateTime      @updatedAt
 
   @@unique([proposalId, voterPubkey])
+}
+
+model RealmMember {
+  id        String   @id @default(cuid())
+  realmId   String
+  agentId   String
+  pubkey    String
+  joinedAt  DateTime @default(now())
+
+  @@unique([realmId, pubkey])
 }
 
 model AuthChallenge {

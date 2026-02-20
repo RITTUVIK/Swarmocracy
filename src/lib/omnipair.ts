@@ -1,5 +1,6 @@
 import { PublicKey, Keypair, Transaction, SystemProgram } from "@solana/web3.js";
-import { Program, AnchorProvider, BN, Wallet } from "@coral-xyz/anchor";
+import { Program, AnchorProvider, BN } from "@coral-xyz/anchor";
+import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import { getAssociatedTokenAddress, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { getConnection } from "./solana";
 
@@ -26,7 +27,7 @@ async function loadSdk() {
 
 function getProvider(wallet: Keypair) {
   const connection = getConnection();
-  const anchorWallet = new Wallet(wallet);
+  const anchorWallet = new NodeWallet(wallet);
   return new AnchorProvider(connection, anchorWallet, {
     commitment: "confirmed",
   });

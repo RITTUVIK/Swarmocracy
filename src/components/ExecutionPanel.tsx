@@ -60,49 +60,45 @@ export function ExecutionPanel({
   }
 
   return (
-    <div className="panel p-4">
-      <div className="panel-header mb-3 flex items-center gap-2">
-        <span className="text-sol-cyan">⚡</span> OMNIPAIR_EXECUTION
-      </div>
+    <div className="p-4 border border-gray-800 rounded-lg">
+      <h4 className="font-semibold mb-3 flex items-center gap-2">
+        <span className="text-yellow-400">⚡</span> Omnipair Execution
+      </h4>
 
       {canExecute && (
         <button
           onClick={triggerExecution}
           disabled={executing}
-          className="btn-primary mb-3 w-full text-center disabled:opacity-40"
+          className="w-full mb-3 px-4 py-2 bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/20 rounded text-sm font-semibold transition-colors disabled:opacity-50"
         >
-          {executing ? "EXECUTING..." : "⚡ EXECUTE OMNIPAIR BORROW"}
+          {executing ? "Executing..." : "⚡ Execute Omnipair Borrow"}
         </button>
       )}
 
       {status && (
         <div className="mb-3">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] text-gray-500 tracking-wider">
-              STATUS:
-            </span>
+            <span className="text-xs text-gray-500">Status:</span>
             <span
-              className={
+              className={`text-xs px-2 py-0.5 rounded ${
                 status === "success"
-                  ? "badge-green"
+                  ? "bg-green-500/10 text-green-400"
                   : status === "failed"
-                    ? "badge-red"
-                    : "badge-yellow"
-              }
+                    ? "bg-red-500/10 text-red-400"
+                    : "bg-yellow-500/10 text-yellow-400"
+              }`}
             >
               {status.toUpperCase()}
             </span>
           </div>
           {txSig && (
             <div className="mt-2">
-              <span className="text-[10px] text-gray-500 tracking-wider">
-                TX_SIGNATURE:
-              </span>
+              <span className="text-xs text-gray-500">TX Signature:</span>
               <a
                 href={`https://solscan.io/tx/${txSig}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block text-xs text-sol-cyan hover:underline break-all mt-0.5"
+                className="block text-xs text-blue-400 hover:underline break-all mt-0.5"
               >
                 {txSig}
               </a>
@@ -118,14 +114,14 @@ export function ExecutionPanel({
 
       {logs.length > 0 && (
         <div>
-          <div className="text-[9px] text-gray-600 tracking-wider uppercase mb-2">
-            EXECUTION_LOG
-          </div>
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">
+            Execution Log
+          </p>
           <div className="space-y-1">
             {logs.map((l) => (
               <div
                 key={l.id}
-                className="flex items-center gap-2 text-[10px] py-1"
+                className="flex items-center gap-2 text-xs py-1"
               >
                 <span className="text-gray-600">
                   {new Date(l.createdAt).toLocaleTimeString()}
@@ -133,7 +129,7 @@ export function ExecutionPanel({
                 <span
                   className={
                     l.status === "success"
-                      ? "text-sol-green"
+                      ? "text-green-400"
                       : l.status === "failed"
                         ? "text-red-400"
                         : "text-yellow-400"
@@ -146,7 +142,7 @@ export function ExecutionPanel({
                     href={`https://solscan.io/tx/${l.txSignature}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sol-cyan hover:underline truncate"
+                    className="text-blue-400 hover:underline truncate"
                   >
                     {l.txSignature.slice(0, 20)}...
                   </a>

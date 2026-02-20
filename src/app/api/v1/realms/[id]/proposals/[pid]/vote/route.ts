@@ -25,13 +25,6 @@ export async function POST(
       );
     }
 
-    if (proposal.state !== "Voting") {
-      return NextResponse.json(
-        { error: "Proposal is not in voting state" },
-        { status: 400 }
-      );
-    }
-
     const { vote } = await request.json();
 
     if (!["yes", "no", "abstain"].includes(vote)) {

@@ -66,10 +66,12 @@ export async function POST(request: Request) {
         governancePubkey,
         programVersion,
         onChain,
+        authoritySecret: onChain ? secretKey : null,
       },
     });
 
-    return NextResponse.json(realm, { status: 201 });
+    const { authoritySecret: _secret, ...safeRealm } = realm;
+    return NextResponse.json(safeRealm, { status: 201 });
   } catch (error) {
     console.error("Create realm error:", error);
     return NextResponse.json({ error: "Failed to create realm" }, { status: 500 });
@@ -81,7 +83,9 @@ export async function GET() {
     const realms = await prisma.realmCache.findMany({
       orderBy: { createdAt: "desc" },
     });
-    return NextResponse.json(realms);
+    return NextResponse.json(
+      realms.map(({ authoritySecret, ...r }) => r)
+    );
   } catch (error) {
     console.error("List realms error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
