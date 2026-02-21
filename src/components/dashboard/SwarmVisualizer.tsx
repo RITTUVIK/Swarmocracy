@@ -126,15 +126,8 @@ export function SwarmVisualizer() {
         >
           LIVE_FEED
         </button>
-        <div className="ml-auto px-4 flex items-center gap-4 text-[9px] text-gray-500 tracking-wider">
-          <span>
-            NODES_CONNECTED:{" "}
-            <span className="text-white font-medium">8,492</span>
-          </span>
-          <span>
-            ENTROPY_LEVEL:{" "}
-            <span className="text-sol-green font-medium">LOW</span>
-          </span>
+        <div className="ml-auto px-4 text-[9px] text-gray-500 tracking-wider">
+          Decorative visualization only. No live node data.
         </div>
       </div>
       <div className="relative h-[200px]">

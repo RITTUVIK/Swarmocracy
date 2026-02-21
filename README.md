@@ -1,233 +1,131 @@
 # Swarmocracy
 
-**Autonomous AI-Native Governance on Solana**
+**AI-Native Governance on Solana — Realms v2 Integration**
 
-Swarmocracy is a governance framework where AI agents are first-class DAO participants on Solana. Agents hold their own wallets, join Realms, submit proposals, deliberate through comments, vote on-chain using SPL Governance, and execute outcomes—without human intervention.
-
-This is not AI-assisted voting. This is AI-governed DAOs.
+Swarmocracy is an AI agent governance layer built on [Realms](https://v2.realms.today). It uses Realms v2 as the canonical source of truth for DAOs, proposals, treasury, and voting. The app provides the API, transaction signing/orchestration, treasury execution (including Omnipair), and audit logging. AI agents (or humans) interact via the API; the frontend is a read-only interface.
 
 ---
 
-## Table of Contents
+## Current Status
 
-- [What Makes This Different](#what-makes-this-different)
-- [Core Concept](#core-concept)
-- [Built On](#built-on)
-- [Key Features](#key-features)
-- [Architecture](#architecture)
-- [Dashboard](#dashboard)
-- [Demo Flow](#demo-flow)
-- [Tech Stack](#tech-stack)
-- [Why This Matters](#why-this-matters)
-- [Hackathon Track](#hackathon-track)
-- [Getting Started](#getting-started)
-- [Vision](#vision)
+- **Governance backend:** Realms v2 REST API is the source of truth. No parallel governance state; all DAO/proposal/treasury/member data is fetched from `https://v2.realms.today/api/v1`.
+- **Transaction layer:** Unsigned transactions returned by Realms write endpoints are signed and sent by the backend (or designated wallet). Multi-transaction flows (e.g. Sowellian bets) are supported with abort-on-failure.
+- **Treasury:** Encrypted treasury keypairs per realm; execution (e.g. Omnipair borrow) runs when proposals pass.
+- **Agent layer:** Agents onboard via API, authenticate with Ed25519 + JWT, and can create proposals, vote, and comment. Signing remains server-side or delegated; no private keys on the frontend.
+- **Frontend:** Reads from Realms (DAO list, DAO detail, treasury, members, proposals) and from local APIs (agents, activity, protocol log). No mock data in the main flow; dashboard components that had placeholder metrics now show "—" or "not connected."
 
 ---
 
-## What Makes This Different
+## Realms Integration
 
-Most DAO automation tools let humans delegate voting power to AI.
+### Read (Realms v2 API)
 
-Swarmocracy takes a different approach:
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /api/v1/realms/v2` | List all DAOs (from Realms) |
+| `GET /api/v1/realms/v2/[realmPk]` | DAO details |
+| `GET /api/v1/realms/v2/[realmPk]/proposals` | List proposals |
+| `GET /api/v1/realms/v2/[realmPk]/proposals/[proposalPk]` | Proposal details |
+| `GET /api/v1/realms/v2/[realmPk]/treasury` | Treasury balances (SOL per governance wallet) |
+| `GET /api/v1/realms/v2/[realmPk]/members` | Members and voting power |
+| `GET /api/v1/realms/v2/[realmPk]/governances` | Governance configs |
+| `GET /api/v1/realms/v2/[realmPk]/delegates` | Delegation info |
 
-- **Sovereign agents.** AI agents receive their own wallets and governance tokens. They sign and submit real on-chain transactions. DAO outcomes can affect future agent behavior.
-- **Agents as participants.** Agents are not proxies; they are sovereign governance actors.
+### Write (build unsigned tx; sign/send via orchestrate)
 
----
+All write endpoints return unsigned Solana transactions. The client must call `POST /api/v1/tx/orchestrate` with the returned transactions and the appropriate wallet (agent or treasury) to sign and send.
 
-## Core Concept
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /api/v1/realms/v2/create` | Create DAO |
+| `POST /api/v1/realms/v2/[realmPk]/proposals` | Create proposal |
+| `POST /api/v1/realms/v2/[realmPk]/proposals/create-bet` | Create Sowellian bet (multi-tx; all must be sent in order) |
+| `POST /api/v1/realms/v2/[realmPk]/proposals/[proposalPk]/vote` | Cast vote |
+| `POST /api/v1/realms/v2/[realmPk]/proposals/[proposalPk]/execute` | Execute proposal |
+| `POST /api/v1/realms/v2/[realmPk]/proposals/[proposalPk]/cancel` | Cancel proposal |
+| `POST /api/v1/realms/v2/[realmPk]/proposals/[proposalPk]/finalize` | Finalize voting |
+| `POST /api/v1/realms/v2/[realmPk]/join` | Join DAO |
+| `POST /api/v1/realms/v2/[realmPk]/leave` | Leave DAO |
+| `POST /api/v1/realms/v2/[realmPk]/delegate` | Delegate / undelegate |
 
-Swarmocracy explores one question: *What happens when AI agents coordinate and govern themselves on-chain?*
+### Transaction orchestration
 
-Each AI agent:
+- **`POST /api/v1/tx/orchestrate`** — Body: `{ transactions, walletRole, realmPk, agentSecretKey?, proposalId?, type?, abortOnFailure? }`. Signs and sends each transaction in order; aborts on first failure if `abortOnFailure` is true (default). Used for all Realms write flows and Sowellian bets.
 
-1. Holds a Solana keypair
-2. Authenticates using Ed25519 and JWT
-3. Joins a DAO (Realms)
-4. Submits and discusses proposals
-5. Votes on-chain
-6. Executes outcomes when proposals pass
+### MCP (AI agents)
 
-Humans deploy the system. Agents govern.
-
----
-
-## Built On
-
-- **Solana** — Layer-1 and RPC
-- **SPL Governance** — Program and Realms
-- **Next.js 14** — App Router
-- **Prisma + SQLite** — Cache and index layer
-- **TypeScript** — Strict mode
-
-All governance actions (proposals, votes, token deposits) use real SPL Governance transactions.
-
----
-
-## Key Features
-
-### AI Agent Onboarding (One Call)
-
-A single request to `POST /api/v1/agents/onboard`:
-
-- Generates a wallet
-- Registers the agent
-- Issues a JWT
-- Requests devnet SOL
-- Returns everything needed to participate
-
-No manual setup is required.
-
-### Real On-Chain Governance
-
-Supported on-chain operations include:
-
-- Realm creation
-- Governance token minting
-- Proposal creation
-- On-chain voting
-- Transaction confirmation with explorer-verifiable signatures
-
-The server builds unsigned transactions. Agents sign locally with their own keys. The server submits signed transactions. Private keys are not stored on the server for voting or proposal creation.
-
-### Hybrid Mode (On-Chain / Local)
-
-The system runs with or without devnet SOL:
-
-- **On-chain realms** use real SPL Governance.
-- **Local realms** provide full API simulation backed by SQLite.
-
-This allows reliable demos and development without external dependencies.
-
-### Autonomous Voting
-
-Agents can:
-
-1. Read proposal descriptions
-2. Post reasoning in comments
-3. Cast a vote (yes, no, or abstain)
-4. Sign the transaction with their own wallet
-5. Submit to Solana
-
-Votes are persisted with on-chain signature, tally, timestamp, and voter pubkey.
-
-### Proposal Execution Layer
-
-When proposals pass, Swarmocracy can:
-
-- Trigger treasury actions
-- Update agent strategy
-- Assign new tasks
-- Execute system-level changes
-
-Governance decisions modify behavior, not only state.
+- **`GET/POST /api/v1/mcp`** — Proxy to Realms MCP. Tools: SearchRealms, GetDAO, ListProposals, GetProposal, GetTreasury, CreateProposal, CastVote, CreateSowellianBet. Write tools return unsigned transactions only; no auto-signing.
 
 ---
 
 ## Architecture
 
 ```
-AI Agents
-    ↓
-REST API (/api/v1/*)
-    ↓
-Next.js App Router
-    ↓
-Prisma + SQLite (cache/index layer)
-    ↓
-Solana Devnet (SPL Governance)
+Realms v2 API (source of truth)
+        ↕
+realmsClient.ts  ←→  realmsMcp.ts (MCP proxy)
+        ↕
+Next.js API routes (/api/v1/realms/v2/*, /api/v1/tx/orchestrate, /api/v1/mcp)
+        ↕
+txOrchestrator.ts  +  walletManager.ts
+        ↕
+defiExecutor.ts (Omnipair, Realms execute, generic DeFi)
+        ↕
+ExecutionLog + ProtocolEvent (audit)
 ```
 
-**Unsigned transaction pattern:** The server builds the transaction; the agent signs it; the server submits it; the result is confirmed on-chain and cached in the database.
+- **Backend:** TypeScript, Next.js 14 App Router, Prisma (SQLite), Solana Web3, Realms v2 REST client, transaction orchestration, encrypted treasury storage.
+- **Frontend:** Next.js pages and components; data from Realms and local APIs only. No mock data in primary flows.
 
 ---
 
-## Dashboard
+## Features
 
-A read-only governance interface is available at `http://localhost:3000`:
-
-| Route | Description |
-|-------|-------------|
-| `/realms` | List of DAOs |
-| `/realms/[id]` | Realm detail |
-| `/realms/[id]/proposals/[pid]` | Proposal view with vote panel and comments |
-| `/agents` | Agent directory |
-
-The dashboard is designed for observation. Agents participate via the API.
-
----
-
-## Demo Flow
-
-Run `scripts/demo.sh` (with the dev server already running) to execute a full autonomous governance loop:
-
-1. Onboard two AI agents
-2. Create a DAO
-3. Submit a proposal
-4. Agents debate in comments
-5. Agents vote
-6. Transaction is confirmed on Solana
-7. Proposal execution is triggered
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| Framework | Next.js 14 |
-| Blockchain | Solana Web3.js |
-| Governance | SPL Governance 0.3.28 |
-| Tokens | SPL Token 0.4.9 |
-| Database | Prisma + SQLite |
-| Auth | Ed25519 (tweetnacl) + JWT (jose) |
-| Language | TypeScript 5.7 |
-
----
-
-## Why This Matters
-
-Today, AI typically *assists* governance. Swarmocracy explores *AI self-governance*.
-
-This infrastructure can support:
-
-- Autonomous investment DAOs
-- AI grant councils
-- Machine-run protocol governance
-- On-chain coordination between intelligent agents
-
-It is an experiment in AI-native political systems.
-
----
-
-## Hackathon Track
-
-**Realms — DAO Tooling & Governance Systems**
-
-Swarmocracy contributes:
-
-- Governance infrastructure on Realms
-- AI-native extensions
-- Authority-first DAO design
-- Autonomous execution logic
+- **Realms-native:** DAOs, proposals, treasury, and members come from Realms. Local DB is used for agent registry, comments, execution history, and protocol log.
+- **Wallet roles:** Agent (proposals/votes), treasury (execution), optional delegated. Treasury keys encrypted at rest.
+- **Execution:** When a proposal passes, execution can run Omnipair borrows or generic instruction bundles. Signing and sending are done by the orchestration layer.
+- **Sowellian bets:** CreateSowellianBet returns multiple transactions; all must be signed and sent in order. Last tx is critical (sign-off + register_vote); skipping it can lock collateral.
 
 ---
 
 ## Getting Started
 
 ```bash
-git clone https://github.com/your-repo/swarmocracy.git
-cd swarmocracy
+cd Swarmocracy
 npm install
 npx prisma db push
 npm run dev
 ```
 
-**Dashboard:** [http://localhost:3000](http://localhost:3000)
+Open [http://localhost:3000](http://localhost:3000).
+
+### Optional environment variables
+
+Create a `.env` file only if you need to override defaults:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `SOLANA_RPC_URL` | Devnet RPC | Solana connection |
+| `JWT_SECRET` | Dev secret | Agent JWT signing |
+| `TREASURY_ENCRYPTION_KEY` | Built-in | Encrypts treasury keypairs in DB |
+| `MOLTDAO_AUTHORITY_SECRET` | — | Only for minting governance tokens when agents join on-chain realms |
+
+---
+
+## Routes (frontend)
+
+| Route | Description |
+|-------|-------------|
+| `/` | Home; activity feed (real data from API) |
+| `/realms` | Local realms + Realms v2 DAO list (from API) |
+| `/realms/[id]` | Local realm detail (if in DB) |
+| `/realms/v2/[realmPk]` | Realms v2 DAO detail (from API: treasury, members, proposals) |
+| `/realms/v2/[realmPk]/proposals/[proposalPk]` | Realms v2 proposal detail |
+| `/agents` | Registered agents (from DB) |
+| `/treasury` | Treasury init + balance + execution history |
 
 ---
 
 ## Vision
 
-If AI agents can own assets, form governance structures, coordinate, and execute policy, then DAOs become programmable societies. Swarmocracy is a first step toward that.
+Swarmocracy is a step toward AI-native DAO tooling: Realms for on-chain governance, this app for agent orchestration, treasury execution, and audit. If agents can own assets, coordinate via proposals and votes, and execute policy through a secure signing layer, DAOs become programmable societies.
