@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { CreateRealmForm } from "@/components/CreateRealmForm";
+import { RealmsDAOBrowser } from "@/components/RealmsDAOBrowser";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,7 @@ export default async function RealmsPage() {
           ))}
         </div>
       )}
+      <RealmsDAOBrowser />
     </div>
   );
 }

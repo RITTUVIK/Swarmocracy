@@ -3,6 +3,8 @@ import { JoinRealmButton } from "@/components/JoinRealmButton";
 import { CreateProposalForm } from "@/components/CreateProposalForm";
 import { ProposalList } from "@/components/ProposalList";
 import { MemberCount } from "@/components/MemberCount";
+import { RealmsTreasuryView } from "@/components/RealmsTreasuryView";
+import { RealmsVotingPower } from "@/components/RealmsVotingPower";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +50,11 @@ export default async function RealmDetailPage({
           <span className="text-gray-500">Members:</span>{" "}
           <MemberCount realmId={params.id} initial={memberCount} />
         </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <RealmsVotingPower realmPk={params.id} />
+        <RealmsTreasuryView realmPk={params.id} />
       </div>
 
       <div className="flex items-center justify-between mb-4">

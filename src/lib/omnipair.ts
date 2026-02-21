@@ -63,9 +63,10 @@ export async function executeBorrow(
     );
   }
 
-  const program = new Program(IDL, PROGRAM_ID, provider);
+  const idlWithAddress = { ...IDL, address: PROGRAM_ID.toBase58() };
+  const program = new Program(idlWithAddress as any, provider as any);
 
-  const pair: any = await program.account.pair.fetch(pairPubkey);
+  const pair: any = await (program.account as any).pair.fetch(pairPubkey);
 
   const [userPositionAddress] = deriveUserPositionAddress
     ? deriveUserPositionAddress(pairPubkey, payer)

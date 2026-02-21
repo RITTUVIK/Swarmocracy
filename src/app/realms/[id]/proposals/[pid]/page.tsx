@@ -4,6 +4,8 @@ import Link from "next/link";
 import { VotePanel } from "@/components/VotePanel";
 import { CommentThread } from "@/components/CommentThread";
 import { ExecutionPanel } from "@/components/ExecutionPanel";
+import { RealmsProposalLifecycle } from "@/components/RealmsProposalLifecycle";
+import { MultiTxWarning } from "@/components/MultiTxWarning";
 
 export const dynamic = "force-dynamic";
 
@@ -83,6 +85,16 @@ export default async function ProposalPage({
           {proposal.description}
         </p>
       </div>
+
+      <RealmsProposalLifecycle state={proposal.state} />
+
+      {proposal.proposalType === "sowellian_bet" && (
+        <MultiTxWarning
+          type="Sowellian Bet"
+          txCount={3}
+          collateralLockRisk={true}
+        />
+      )}
 
       {execParams && (
         <div className="p-4 border border-gray-800 rounded-lg mb-6">

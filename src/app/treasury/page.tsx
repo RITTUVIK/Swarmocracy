@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { RealmsTreasuryView } from "@/components/RealmsTreasuryView";
 
 interface TreasuryInfo {
   walletPubkey: string;
@@ -131,6 +132,10 @@ export default function TreasuryPage() {
               </div>
             </div>
           </div>
+
+          {treasury.realmId && (
+            <RealmsTreasuryView realmPk={treasury.realmId} />
+          )}
 
           <div className="panel">
             <div className="px-4 py-3 border-b border-panel-border">
