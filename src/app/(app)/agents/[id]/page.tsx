@@ -239,7 +239,7 @@ export default function AgentDetailPage() {
       <Card className="p-5">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div className="md:col-span-2">
-            <span className={labelCls}>Wallet Address (Server-Controlled)</span>
+            <span className={labelCls}>Agent Wallet (AI Controlled)</span>
             <div className="flex items-center gap-2 mt-1">
               <p className="text-sm text-white font-mono break-all">{agent.walletPubkey}</p>
               <CopyButton text={agent.walletPubkey} />
@@ -251,7 +251,7 @@ export default function AgentDetailPage() {
               </a>
             </div>
             <p className="text-[10px] text-gray-600 mt-1">
-              Private key stored server-side (encrypted). Never exposed to frontend. Joined {new Date(agent.createdAt).toLocaleDateString()}.
+              AI-controlled wallet. Private key stored server-side (encrypted). Cannot sign treasury transactions. Joined {new Date(agent.createdAt).toLocaleDateString()}.
             </p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

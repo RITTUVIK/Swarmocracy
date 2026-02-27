@@ -51,6 +51,16 @@ export async function executeProposalGeneric(
 ): Promise<ExecutionResult> {
   const { proposalId, realmPk, type, walletRole, agentSecretKey, params } = req;
 
+  // OmniPair and DeFi execution MUST use treasury role — agents cannot sign these
+  if ((type === "omnipair_borrow" || type === "defi_instructions") && walletRole !== "treasury") {
+    await logProtocolEvent("ERROR", `BLOCKED: ${type} attempted with ${walletRole} role. Only treasury can sign.`);
+    return {
+      status: "failed",
+      signatures: [],
+      error: `${type} requires treasury wallet role. Agent wallets cannot sign DeFi transactions.`,
+    };
+  }
+
   await prisma.proposalCache.update({
     where: { id: proposalId },
     data: { executionStatus: "executing" },
@@ -138,21 +148,48 @@ async function executeOmnipairBorrow(
     throw new Error("Missing required Omnipair borrow parameters");
   }
 
-  const result = await executeBorrow(keypair, borrowParams);
-
-  await prisma.executionLog.create({
+  const omniExec = await prisma.omniPairExecution.create({
     data: {
-      proposalId,
-      type: "omnipair_borrow",
-      status: "success",
-      txSignature: result.txSignature,
-      inputParams: JSON.stringify(borrowParams),
-      outputData: JSON.stringify(result),
-      executedAt: new Date(),
+      daoPk: (params.daoPk as string) || "",
+      proposalPk: proposalId,
+      executionType: "borrow",
+      assetMint: borrowParams.borrowMint,
+      collateralMint: borrowParams.collateralMint,
+      amount: borrowParams.borrowAmount,
+      status: "pending",
+      treasuryPk: keypair.publicKey.toBase58(),
+      executedBy: "governance",
     },
   });
 
-  return { status: "success", signatures: [result.txSignature] };
+  try {
+    const result = await executeBorrow(keypair, borrowParams);
+
+    await prisma.omniPairExecution.update({
+      where: { id: omniExec.id },
+      data: { status: "executed", txSignature: result.txSignature, executedAt: new Date() },
+    });
+
+    await prisma.executionLog.create({
+      data: {
+        proposalId,
+        type: "omnipair_borrow",
+        status: "success",
+        txSignature: result.txSignature,
+        inputParams: JSON.stringify(borrowParams),
+        outputData: JSON.stringify({ ...result, omniPairExecutionId: omniExec.id }),
+        executedAt: new Date(),
+      },
+    });
+
+    return { status: "success", signatures: [result.txSignature] };
+  } catch (err: any) {
+    await prisma.omniPairExecution.update({
+      where: { id: omniExec.id },
+      data: { status: "failed", errorMessage: err.message || "Unknown error" },
+    });
+    throw err;
+  }
 }
 
 // ─── Realms Proposal Execution ────────────────────────────────────────

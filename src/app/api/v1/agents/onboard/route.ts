@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { generateKeypair } from "@/lib/wallet";
 import { createToken } from "@/lib/auth";
 import { isMainnet } from "@/lib/solana";
+import { registerAgentWallet } from "@/lib/walletManager";
 
 const VALID_STRATEGIES = ["general", "conservative", "growth", "alignment", "yield", "defensive"] as const;
 const VALID_THRESHOLDS = ["simple_majority", "supermajority", "unanimous"] as const;
@@ -62,6 +63,9 @@ export async function POST(request: Request) {
     });
 
     const token = await createToken(publicKey);
+
+    // Register wallet role (enforces separation from treasury wallets)
+    try { await registerAgentWallet(publicKey, agent.id); } catch {}
 
     try {
       const { logProtocolEvent } = await import("@/lib/execution");

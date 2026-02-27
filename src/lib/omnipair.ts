@@ -1,4 +1,14 @@
-import { PublicKey, Keypair, Transaction, SystemProgram } from "@solana/web3.js";
+/**
+ * OmniPair instruction builder.
+ *
+ * This module builds unsigned transaction instructions for OmniPair operations.
+ * It NEVER signs transactions. Signing is handled by the treasury authority
+ * through the execution layer after governance approval.
+ *
+ * Supported operations: borrow, lend, repay, refinance
+ */
+
+import { PublicKey, Keypair, Transaction, TransactionInstruction, SystemProgram } from "@solana/web3.js";
 import { Program, AnchorProvider, BN } from "@coral-xyz/anchor";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import { getAssociatedTokenAddress, TOKEN_PROGRAM_ID } from "@solana/spl-token";
@@ -6,8 +16,6 @@ import { getConnection } from "./solana";
 
 let IDL: any;
 let PROGRAM_ID: PublicKey;
-let derivePairAddress: any;
-let deriveUserPositionAddress: any;
 let SEEDS: any;
 
 async function loadSdk() {
@@ -17,21 +25,34 @@ async function loadSdk() {
     IDL = sdk.IDL;
     PROGRAM_ID = sdk.PROGRAM_ID;
     SEEDS = sdk.SEEDS;
-    if (sdk.derivePairAddress) derivePairAddress = sdk.derivePairAddress;
-    if (sdk.deriveUserPositionAddress) deriveUserPositionAddress = sdk.deriveUserPositionAddress;
-  } catch (err) {
-    console.error("Failed to load @omnipair/program-interface:", err);
+  } catch {
     PROGRAM_ID = new PublicKey("omnixgS8fnqHfCcTGKWj6JtKjzpJZ1Y5y9pyFkQDkYE");
   }
 }
 
-function getProvider(wallet: Keypair) {
+function getReadOnlyProvider() {
   const connection = getConnection();
-  const anchorWallet = new NodeWallet(wallet);
-  return new AnchorProvider(connection, anchorWallet, {
-    commitment: "confirmed",
-  });
+  const dummyWallet = new NodeWallet(Keypair.generate());
+  return new AnchorProvider(connection, dummyWallet, { commitment: "confirmed" });
 }
+
+function getProgram() {
+  if (!IDL) throw new Error("OmniPair SDK not loaded. Call loadSdk() first.");
+  const idlWithAddress = { ...IDL, address: PROGRAM_ID.toBase58() };
+  return new Program(idlWithAddress as any, getReadOnlyProvider() as any);
+}
+
+function deriveUserPosition(pair: PublicKey, user: PublicKey): PublicKey {
+  const [addr] = PublicKey.findProgramAddressSync(
+    [Buffer.from(SEEDS?.POSITION ?? "gamm_position"), pair.toBuffer(), user.toBuffer()],
+    PROGRAM_ID
+  );
+  return addr;
+}
+
+// ─── Types ───────────────────────────────────────────────────────────
+
+export type OmniPairAction = "borrow" | "lend" | "repay" | "refinance";
 
 export interface BorrowParams {
   pairAddress: string;
@@ -41,115 +62,196 @@ export interface BorrowParams {
   borrowAmount: string;
 }
 
-export async function executeBorrow(
-  treasuryKeypair: Keypair,
+export interface LendParams {
+  pairAddress: string;
+  lendMint: string;
+  lendAmount: string;
+}
+
+export interface RepayParams {
+  pairAddress: string;
+  repayMint: string;
+  repayAmount: string;
+}
+
+export interface RefinanceParams {
+  pairAddress: string;
+  collateralMint: string;
+  borrowMint: string;
+  repayAmount: string;
+  newBorrowAmount: string;
+}
+
+// ─── Instruction Builders ────────────────────────────────────────────
+
+/**
+ * Build unsigned borrow instructions (add collateral + borrow).
+ * Returns serialized instructions — never signs.
+ */
+export async function buildBorrowInstructions(
+  payer: PublicKey,
   params: BorrowParams
-): Promise<{ txSignature: string }> {
+): Promise<TransactionInstruction[]> {
   await loadSdk();
+  const program = getProgram();
 
-  const connection = getConnection();
-  const provider = getProvider(treasuryKeypair);
-  const payer = treasuryKeypair.publicKey;
-
-  const pairPubkey = new PublicKey(params.pairAddress);
+  const pairPk = new PublicKey(params.pairAddress);
   const collateralMint = new PublicKey(params.collateralMint);
   const borrowMint = new PublicKey(params.borrowMint);
   const collateralAmount = new BN(params.collateralAmount);
   const borrowAmount = new BN(params.borrowAmount);
 
-  if (!IDL) {
-    throw new Error(
-      "Omnipair SDK not available. Ensure @omnipair/program-interface is installed."
-    );
-  }
+  const pair: any = await (program.account as any).pair.fetch(pairPk);
+  const userPosition = deriveUserPosition(pairPk, payer);
 
-  const idlWithAddress = { ...IDL, address: PROGRAM_ID.toBase58() };
-  const program = new Program(idlWithAddress as any, provider as any);
+  const collateralVault = await getAssociatedTokenAddress(collateralMint, pairPk, true);
+  const userCollateral = await getAssociatedTokenAddress(collateralMint, payer);
+  const borrowVault = await getAssociatedTokenAddress(borrowMint, pairPk, true);
+  const userBorrow = await getAssociatedTokenAddress(borrowMint, payer);
 
-  const pair: any = await (program.account as any).pair.fetch(pairPubkey);
-
-  const [userPositionAddress] = deriveUserPositionAddress
-    ? deriveUserPositionAddress(pairPubkey, payer)
-    : PublicKey.findProgramAddressSync(
-        [
-          Buffer.from(SEEDS?.POSITION ?? "gamm_position"),
-          pairPubkey.toBuffer(),
-          payer.toBuffer(),
-        ],
-        PROGRAM_ID
-      );
-
-  const collateralVaultAddress = await getAssociatedTokenAddress(
-    collateralMint,
-    pairPubkey,
-    true
-  );
-  const userCollateralAccount = await getAssociatedTokenAddress(
-    collateralMint,
-    payer
-  );
-
-  const borrowVaultAddress = await getAssociatedTokenAddress(
-    borrowMint,
-    pairPubkey,
-    true
-  );
-  const userBorrowAccount = await getAssociatedTokenAddress(borrowMint, payer);
-
-  const addCollateralTx = await program.methods
-    .addCollateral({
-      amount: collateralAmount,
-      token: collateralMint,
-    })
+  const addCollateralIx = await program.methods
+    .addCollateral({ amount: collateralAmount, token: collateralMint })
     .accounts({
-      pair: pairPubkey,
-      userPosition: userPositionAddress,
-      rateModel: pair.rateModel,
-      collateralVault: collateralVaultAddress,
-      userTokenAccount: userCollateralAccount,
-      payer,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      systemProgram: SystemProgram.programId,
+      pair: pairPk, userPosition, rateModel: pair.rateModel,
+      collateralVault, userTokenAccount: userCollateral,
+      payer, tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId,
     })
-    .transaction();
+    .instruction();
 
-  const borrowTx = await program.methods
-    .borrow({
-      amount: borrowAmount,
-      token: borrowMint,
-    })
+  const borrowIx = await program.methods
+    .borrow({ amount: borrowAmount, token: borrowMint })
     .accounts({
-      pair: pairPubkey,
-      userPosition: userPositionAddress,
-      rateModel: pair.rateModel,
-      reserveVault: borrowVaultAddress,
-      userTokenAccount: userBorrowAccount,
-      payer,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      systemProgram: SystemProgram.programId,
+      pair: pairPk, userPosition, rateModel: pair.rateModel,
+      reserveVault: borrowVault, userTokenAccount: userBorrow,
+      payer, tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId,
     })
-    .transaction();
+    .instruction();
 
-  const combinedTx = new Transaction();
-  combinedTx.add(...addCollateralTx.instructions, ...borrowTx.instructions);
+  return [addCollateralIx, borrowIx];
+}
 
-  const { blockhash, lastValidBlockHeight } =
-    await connection.getLatestBlockhash("confirmed");
-  combinedTx.recentBlockhash = blockhash;
-  combinedTx.lastValidBlockHeight = lastValidBlockHeight;
-  combinedTx.feePayer = payer;
+/**
+ * Build unsigned lend (deposit) instructions.
+ */
+export async function buildLendInstructions(
+  payer: PublicKey,
+  params: LendParams
+): Promise<TransactionInstruction[]> {
+  await loadSdk();
+  const program = getProgram();
 
-  combinedTx.sign(treasuryKeypair);
+  const pairPk = new PublicKey(params.pairAddress);
+  const lendMint = new PublicKey(params.lendMint);
+  const amount = new BN(params.lendAmount);
 
-  const txSignature = await connection.sendRawTransaction(
-    combinedTx.serialize(),
-    { skipPreflight: false }
-  );
+  const pair: any = await (program.account as any).pair.fetch(pairPk);
+  const vault = await getAssociatedTokenAddress(lendMint, pairPk, true);
+  const userToken = await getAssociatedTokenAddress(lendMint, payer);
 
-  await connection.confirmTransaction(
-    { signature: txSignature, blockhash, lastValidBlockHeight },
-    "confirmed"
-  );
+  const ix = await program.methods
+    .deposit({ amount, token: lendMint })
+    .accounts({
+      pair: pairPk, rateModel: pair.rateModel,
+      reserveVault: vault, userTokenAccount: userToken,
+      payer, tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId,
+    })
+    .instruction();
+
+  return [ix];
+}
+
+/**
+ * Build unsigned repay instructions.
+ */
+export async function buildRepayInstructions(
+  payer: PublicKey,
+  params: RepayParams
+): Promise<TransactionInstruction[]> {
+  await loadSdk();
+  const program = getProgram();
+
+  const pairPk = new PublicKey(params.pairAddress);
+  const repayMint = new PublicKey(params.repayMint);
+  const amount = new BN(params.repayAmount);
+
+  const pair: any = await (program.account as any).pair.fetch(pairPk);
+  const userPosition = deriveUserPosition(pairPk, payer);
+  const vault = await getAssociatedTokenAddress(repayMint, pairPk, true);
+  const userToken = await getAssociatedTokenAddress(repayMint, payer);
+
+  const ix = await program.methods
+    .repay({ amount, token: repayMint })
+    .accounts({
+      pair: pairPk, userPosition, rateModel: pair.rateModel,
+      reserveVault: vault, userTokenAccount: userToken,
+      payer, tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId,
+    })
+    .instruction();
+
+  return [ix];
+}
+
+/**
+ * Build unsigned refinance instructions (repay existing + borrow new amount).
+ */
+export async function buildRefinanceInstructions(
+  payer: PublicKey,
+  params: RefinanceParams
+): Promise<TransactionInstruction[]> {
+  const repayIxs = await buildRepayInstructions(payer, {
+    pairAddress: params.pairAddress,
+    repayMint: params.borrowMint,
+    repayAmount: params.repayAmount,
+  });
+
+  const borrowIxs = await buildBorrowInstructions(payer, {
+    pairAddress: params.pairAddress,
+    collateralMint: params.collateralMint,
+    collateralAmount: "0",
+    borrowMint: params.borrowMint,
+    borrowAmount: params.newBorrowAmount,
+  });
+
+  return [...repayIxs, ...borrowIxs];
+}
+
+/**
+ * Assemble instructions into an unsigned Transaction (for serialization / orchestration).
+ */
+export async function buildUnsignedTransaction(
+  payer: PublicKey,
+  instructions: TransactionInstruction[]
+): Promise<Transaction> {
+  const connection = getConnection();
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
+
+  const tx = new Transaction();
+  tx.add(...instructions);
+  tx.recentBlockhash = blockhash;
+  tx.lastValidBlockHeight = lastValidBlockHeight;
+  tx.feePayer = payer;
+
+  return tx;
+}
+
+/**
+ * Legacy compat: execute a borrow with a keypair (signs + sends).
+ * Used by defiExecutor.ts for backward compatibility.
+ */
+export async function executeBorrow(
+  treasuryKeypair: Keypair,
+  params: BorrowParams
+): Promise<{ txSignature: string }> {
+  const payer = treasuryKeypair.publicKey;
+  const instructions = await buildBorrowInstructions(payer, params);
+  const tx = await buildUnsignedTransaction(payer, instructions);
+
+  tx.sign(treasuryKeypair);
+
+  const connection = getConnection();
+  const txSignature = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: false });
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
+  await connection.confirmTransaction({ signature: txSignature, blockhash, lastValidBlockHeight }, "confirmed");
 
   return { txSignature };
 }

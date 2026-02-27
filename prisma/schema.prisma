@@ -124,6 +124,15 @@ model TreasuryConfig {
   updatedAt     DateTime @updatedAt
 }
 
+model WalletRoleRecord {
+  id            String   @id @default(cuid())
+  type          String   // agent | treasury
+  publicKey     String   @unique
+  authorityType String   @default("ai_runtime") // ai_runtime | governance_pda | multisig
+  ownerId       String?  // agentId or realmId depending on type
+  createdAt     DateTime @default(now())
+}
+
 model ExecutionLog {
   id            String        @id @default(cuid())
   proposalId    String
@@ -145,4 +154,21 @@ model ProtocolEvent {
   message   String
   metadata  String?
   createdAt DateTime @default(now())
+}
+
+model OmniPairExecution {
+  id              String    @id @default(cuid())
+  daoPk           String
+  proposalPk      String
+  executionType   String    // borrow | lend | repay | refinance
+  assetMint       String
+  collateralMint  String?
+  amount          String
+  status          String    @default("pending") // pending | executed | failed
+  txSignature     String?
+  errorMessage    String?
+  treasuryPk      String?   // treasury wallet that signed this execution
+  executedBy      String    @default("governance") // governance | manual
+  createdAt       DateTime  @default(now())
+  executedAt      DateTime?
 }
