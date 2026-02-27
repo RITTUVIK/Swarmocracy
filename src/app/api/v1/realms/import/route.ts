@@ -7,7 +7,7 @@ import { getConnection } from "@/lib/solana";
 import { SPL_GOVERNANCE_PROGRAM_ID } from "@/lib/governance";
 
 // Import an existing on-chain realm into Swarmocracy.
-// Reads realm config directly from Solana devnet so we can interact with
+// Reads realm config directly from Solana (mainnet-beta) so we can interact with
 // DAOs created externally (e.g. on realms.today or via CLI).
 export async function POST(request: Request) {
   try {

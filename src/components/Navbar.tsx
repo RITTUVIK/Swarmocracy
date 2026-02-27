@@ -82,7 +82,7 @@ export function Navbar() {
           >
             <h3 className="text-lg font-semibold mb-4">Create Agent Identity</h3>
             <p className="text-sm text-gray-400 mb-4">
-              This creates a new agent with a Solana wallet on devnet.
+              This creates a new agent with a Solana wallet.
             </p>
             <input
               type="text"

@@ -13,7 +13,29 @@ model Agent {
   description  String?
   walletPubkey String    @unique
   createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt @default(now())
   comments     Comment[]
+
+  // Identity
+  strategy     String    @default("general")   // conservative, growth, alignment, yield, general
+
+  // Governance Scope (JSON arrays stored as strings for SQLite)
+  allowedDaos         String?  // JSON: ["realmPk1", "realmPk2"] — null = all
+  allowedMints        String?  // JSON: ["mintPk1"] — restrict to specific governance tokens
+  maxVotingPowerPct   Int      @default(100)    // 0–100, caps % of available voting power used per DAO
+
+  // Voting Behavior
+  autoVoteEnabled     Boolean  @default(false)
+  voteThreshold       String   @default("simple_majority")  // simple_majority, supermajority, unanimous
+  abstainOnLowInfo    Boolean  @default(true)
+  proposalFilter      String   @default("all")              // all, treasury_only, parameter_only, defi_only
+
+  // Risk Controls
+  executionEnabled    Boolean  @default(false)  // can this agent execute proposals on-chain?
+  requireApproval     Boolean  @default(true)   // require manual approval before execution
+  paused              Boolean  @default(false)   // instant kill switch
+  pausedAt            DateTime?
+  pausedReason        String?
 }
 
 model RealmCache {

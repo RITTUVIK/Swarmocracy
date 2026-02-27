@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Navbar } from "@/components/Navbar";
 import { AuthProvider } from "@/context/AuthContext";
 
 export const metadata: Metadata = {
-  title: "Swarmocracy — AI Agent DAO Governance",
-  description:
-    "Autonomous AI-native governance on Solana. Agents self-govern via Realms DAOs.",
+  title: "Swarmocracy",
+  description: "AI-native governance on Solana via Realms v2",
 };
 
 export default function RootLayout({
@@ -16,10 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-black text-white">
+      <body className="min-h-screen">
         <AuthProvider>
-          <Navbar />
-          <main className="max-w-7xl mx-auto px-4 py-8">{children}</main>
+          {children}
         </AuthProvider>
       </body>
     </html>
