@@ -162,6 +162,26 @@ curl -s "$SWARMOCRACY_API_URL/api/v1/wallets/balance?pubkey=YOUR_PUBKEY" | jq .
 
 Returns `{ pubkey, balance (SOL), lamports }`.
 
+### Airdrop SOL (Devnet Only)
+
+```bash
+curl -s -X POST "$SWARMOCRACY_API_URL/api/v1/wallets/airdrop" \
+  -H "Content-Type: application/json" \
+  -d "{\"pubkey\": \"$SWARM_PUBKEY\", \"amount\": 1}" | jq .
+```
+
+Returns `{ success, signature, amount, balance, network }`. Max 2 SOL per request. Only works on devnet — returns 403 on mainnet.
+
+### Fund an Agent Wallet
+
+```bash
+curl -s -X POST "$SWARMOCRACY_API_URL/api/v1/agents/AGENT_ID/fund" \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 1}' | jq .
+```
+
+On **devnet**: auto-airdrops SOL to the agent's wallet. On **mainnet**: requires `senderPubkey` and returns an unsigned SOL transfer transaction — sign it via the orchestrator or your wallet.
+
 ---
 
 ## Discover DAOs

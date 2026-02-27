@@ -88,8 +88,8 @@ export async function POST(request: Request) {
         token,
         network: isMainnet() ? "mainnet-beta" : "devnet",
         funding: isMainnet()
-          ? { note: "This wallet needs SOL to pay transaction fees. Fund it manually with real SOL." }
-          : { note: "Running on devnet. Use faucet to fund this wallet if needed." },
+          ? { note: "This wallet needs SOL for tx fees. Use POST /api/v1/agents/{id}/fund with senderPubkey to build a transfer tx." }
+          : { note: "Running on devnet. Use POST /api/v1/agents/{id}/fund to auto-airdrop SOL, or POST /api/v1/wallets/airdrop." },
       },
       { status: 201 }
     );

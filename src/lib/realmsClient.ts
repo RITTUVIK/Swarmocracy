@@ -1,6 +1,6 @@
 import { getConnection } from "./solana";
 
-const REALMS_API = "https://v2.realms.today/api/v1";
+const REALMS_API = process.env.REALMS_API_URL || "https://v2.realms.today/api/v1";
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -338,7 +338,8 @@ export async function createDAO(params: {
   minCommunityTokensToCreateProposal?: string;
   communityVoteThresholdPercentage?: number;
 }): Promise<RealmsTxResponse> {
-  return realmsPost<RealmsTxResponse>("/daos/create", params);
+  const { walletPk, ...rest } = params;
+  return realmsPost<RealmsTxResponse>("/daos/create", { ...rest, walletPublicKey: walletPk });
 }
 
 export async function createProposal(
@@ -356,7 +357,8 @@ export async function createProposal(
     }[];
   }
 ): Promise<RealmsTxResponse> {
-  return realmsPost<RealmsTxResponse>(`/daos/${realmPk}/proposals/create`, params);
+  const { walletPk, ...rest } = params;
+  return realmsPost<RealmsTxResponse>(`/daos/${realmPk}/proposals/create`, { ...rest, walletPublicKey: walletPk });
 }
 
 export async function createSowellianBet(
@@ -372,7 +374,8 @@ export async function createSowellianBet(
     description?: string;
   }
 ): Promise<RealmsTxResponse> {
-  return realmsPost<RealmsTxResponse>(`/daos/${realmPk}/proposals/create-bet`, params);
+  const { walletPk, ...rest } = params;
+  return realmsPost<RealmsTxResponse>(`/daos/${realmPk}/proposals/create-bet`, { ...rest, walletPublicKey: walletPk });
 }
 
 export async function castVote(
@@ -383,9 +386,10 @@ export async function castVote(
     vote: "yes" | "no" | "abstain" | "veto";
   }
 ): Promise<RealmsTxResponse> {
+  const { walletPk, ...rest } = params;
   return realmsPost<RealmsTxResponse>(
     `/daos/${realmPk}/proposals/${proposalPk}/vote`,
-    params
+    { ...rest, walletPublicKey: walletPk }
   );
 }
 
@@ -406,7 +410,7 @@ export async function cancelProposal(
 ): Promise<RealmsTxResponse> {
   return realmsPost<RealmsTxResponse>(
     `/daos/${realmPk}/proposals/${proposalPk}/cancel`,
-    params
+    { walletPublicKey: params.walletPk }
   );
 }
 
@@ -424,26 +428,29 @@ export async function joinDAO(
   realmPk: string,
   params: { walletPk: string; amount?: string }
 ): Promise<RealmsTxResponse> {
-  return realmsPost<RealmsTxResponse>(`/daos/${realmPk}/join`, params);
+  const { walletPk, ...rest } = params;
+  return realmsPost<RealmsTxResponse>(`/daos/${realmPk}/join`, { ...rest, walletPublicKey: walletPk });
 }
 
 export async function leaveDAO(
   realmPk: string,
   params: { walletPk: string }
 ): Promise<RealmsTxResponse> {
-  return realmsPost<RealmsTxResponse>(`/daos/${realmPk}/leave`, params);
+  return realmsPost<RealmsTxResponse>(`/daos/${realmPk}/leave`, { walletPublicKey: params.walletPk });
 }
 
 export async function delegateVote(
   realmPk: string,
   params: { walletPk: string; delegatePk: string; tokenType?: string }
 ): Promise<RealmsTxResponse> {
-  return realmsPost<RealmsTxResponse>(`/daos/${realmPk}/delegate`, params);
+  const { walletPk, ...rest } = params;
+  return realmsPost<RealmsTxResponse>(`/daos/${realmPk}/delegate`, { ...rest, walletPublicKey: walletPk });
 }
 
 export async function undelegateVote(
   realmPk: string,
   params: { walletPk: string; delegatePk: string; tokenType?: string }
 ): Promise<RealmsTxResponse> {
-  return realmsPost<RealmsTxResponse>(`/daos/${realmPk}/undelegate`, params);
+  const { walletPk, ...rest } = params;
+  return realmsPost<RealmsTxResponse>(`/daos/${realmPk}/undelegate`, { ...rest, walletPublicKey: walletPk });
 }

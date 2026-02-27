@@ -6,7 +6,7 @@
  * Signing is routed to walletManager + txOrchestrator.
  */
 
-const MCP_ENDPOINT = "https://v2.realms.today/api/mcp";
+const MCP_ENDPOINT = process.env.REALMS_MCP_URL || "https://v2.realms.today/api/mcp";
 
 export interface McpToolCall {
   tool: string;
