@@ -67,9 +67,12 @@ export default function AgentsPage() {
   const [result, setResult] = useState<OnboardResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Agent | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [tokenAgent, setTokenAgent] = useState<Agent | null>(null);
+  const [tokenInput, setTokenInput] = useState("");
   const { session } = useAuth();
 
-  // Form state
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -134,15 +137,33 @@ export default function AgentsPage() {
     }
   }
 
-  async function handleDelete(agent: Agent) {
-    if (!confirm(`Delete agent "${agent.name}"? This cannot be undone.`)) return;
-    setDeleting(agent.id);
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(deleteTarget.id);
+    setDeleteError(null);
     try {
-      const res = await fetch(`/api/v1/agents/${agent.id}`, { method: "DELETE" });
-      if (res.ok) setAgents((prev) => prev.filter((a) => a.id !== agent.id));
-      else { const d = await res.json(); alert(d.error || "Failed"); }
-    } catch { alert("Failed to delete agent"); }
-    finally { setDeleting(null); }
+      const res = await fetch(`/api/v1/agents/${deleteTarget.id}`, { method: "DELETE" });
+      if (res.ok) {
+        setAgents((prev) => prev.filter((a) => a.id !== deleteTarget.id));
+        setDeleteTarget(null);
+      } else {
+        const d = await res.json();
+        setDeleteError(d.error || "Failed to delete agent");
+      }
+    } catch {
+      setDeleteError("Failed to delete agent");
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  function handleSetActive() {
+    if (!tokenAgent || !tokenInput.trim()) return;
+    const s = { token: tokenInput.trim(), pubkey: tokenAgent.walletPubkey, name: tokenAgent.name, agentId: tokenAgent.id };
+    localStorage.setItem("swarm_session", JSON.stringify(s));
+    setTokenAgent(null);
+    setTokenInput("");
+    window.location.reload();
   }
 
   function copyToClipboard(text: string) { navigator.clipboard.writeText(text); }
@@ -164,6 +185,49 @@ export default function AgentsPage() {
           Create Agent
         </button>
       </div>
+
+      {/* ── Delete Confirmation Modal ── */}
+      {deleteTarget && (
+        <Card glow="red">
+          <CardBody className="space-y-3">
+            <p className="text-sm text-white font-semibold">Delete &ldquo;{deleteTarget.name}&rdquo;?</p>
+            <p className="text-xs text-gray-400">This removes the agent and all its memberships. This cannot be undone.</p>
+            {deleteError && <p className="text-xs text-rose-400">{deleteError}</p>}
+            <div className="flex items-center gap-3">
+              <button onClick={confirmDelete} disabled={deleting === deleteTarget.id}
+                className="px-4 py-2 rounded-lg text-xs font-semibold bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-40 transition-colors">
+                {deleting === deleteTarget.id ? "Deleting..." : "Confirm Delete"}
+              </button>
+              <button onClick={() => { setDeleteTarget(null); setDeleteError(null); }}
+                className="px-4 py-2 rounded-lg text-xs text-gray-500 hover:text-gray-300 transition-colors">
+                Cancel
+              </button>
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
+      {/* ── Set Active Agent Token Modal ── */}
+      {tokenAgent && (
+        <Card glow="purple">
+          <CardBody className="space-y-3">
+            <p className="text-sm text-white font-semibold">Set &ldquo;{tokenAgent.name}&rdquo; as Active Agent</p>
+            <p className="text-xs text-gray-400">Paste the JWT token for this agent below.</p>
+            <input type="text" value={tokenInput} onChange={(e) => setTokenInput(e.target.value)}
+              placeholder="Paste JWT token here" className={inputCls} autoFocus />
+            <div className="flex items-center gap-3">
+              <button onClick={handleSetActive} disabled={!tokenInput.trim()}
+                className="px-4 py-2 rounded-lg text-xs font-semibold bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-40 transition-colors">
+                Activate
+              </button>
+              <button onClick={() => { setTokenAgent(null); setTokenInput(""); }}
+                className="px-4 py-2 rounded-lg text-xs text-gray-500 hover:text-gray-300 transition-colors">
+                Cancel
+              </button>
+            </div>
+          </CardBody>
+        </Card>
+      )}
 
       {/* ── Create Form ── */}
       {showCreate && (
@@ -388,18 +452,13 @@ export default function AgentsPage() {
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" /> Active
                     </span>
                   ) : (
-                    <button onClick={() => {
-                      const token = prompt("Paste the JWT token for this agent to set as active:");
-                      if (!token) return;
-                      const s = { token, pubkey: agent.walletPubkey, name: agent.name, agentId: agent.id };
-                      localStorage.setItem("swarm_session", JSON.stringify(s));
-                      window.location.reload();
-                    }} className="text-[10px] text-gray-600 hover:text-violet-400 transition-colors">
+                    <button onClick={(e) => { e.stopPropagation(); setTokenAgent(agent); setTokenInput(""); }}
+                      className="text-[10px] text-gray-600 hover:text-violet-400 transition-colors">
                       Set active
                     </button>
                   )}
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); handleDelete(agent); }}
+                <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(agent); setDeleteError(null); }}
                   disabled={deleting === agent.id}
                   className="text-[10px] text-gray-600 hover:text-rose-400 disabled:opacity-40 transition-colors">
                   {deleting === agent.id ? "..." : "Delete"}
@@ -413,7 +472,6 @@ export default function AgentsPage() {
   );
 }
 
-/* ── Toggle field component ── */
 function ToggleField({
   label, value, onChange, desc, warn, warnText,
 }: {

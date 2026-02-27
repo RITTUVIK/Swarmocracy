@@ -54,6 +54,8 @@ export default function ProposalDetailPage() {
   const [selectedVote, setSelectedVote] = useState<VoteChoice | null>(null);
   const [sendingVoteTx, setSendingVoteTx] = useState(false);
   const [voteTxResult, setVoteTxResult] = useState<string | null>(null);
+  const [showVoteTxConfirm, setShowVoteTxConfirm] = useState(false);
+  const [showExecConfirm, setShowExecConfirm] = useState(false);
 
   const fetchProposal = useCallback(async () => {
     const [propRes, logRes] = await Promise.all([
@@ -104,9 +106,11 @@ export default function ProposalDetailPage() {
 
   async function handleSendVoteTx() {
     if (!voteResult?.transactions || voteResult.transactions.length === 0) return;
-    if (isMainnetNetwork()) {
-      if (!confirm("You are on Mainnet-Beta. This transaction costs real SOL and cannot be reversed. Continue?")) return;
+    if (isMainnetNetwork() && !showVoteTxConfirm) {
+      setShowVoteTxConfirm(true);
+      return;
     }
+    setShowVoteTxConfirm(false);
     setSendingVoteTx(true);
     setVoteError(null);
     try {
@@ -134,10 +138,11 @@ export default function ProposalDetailPage() {
   }
 
   async function handleExecute() {
-    const msg = isMainnetNetwork()
-      ? "Execute this proposal on Mainnet-Beta? This costs real SOL and cannot be reversed."
-      : "Execute this proposal on-chain? This action cannot be undone.";
-    if (!confirm(msg)) return;
+    if (!showExecConfirm) {
+      setShowExecConfirm(true);
+      return;
+    }
+    setShowExecConfirm(false);
     setExecuting(true);
     setExecError(null);
     setExecResult(null);
@@ -280,17 +285,35 @@ export default function ProposalDetailPage() {
                       </p>
                     </div>
                     {voteResult.transactions && voteResult.transactions.length > 0 ? (
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={handleSendVoteTx}
-                          disabled={sendingVoteTx}
-                          className="px-5 py-2 rounded-lg text-xs font-semibold bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-40 transition-colors"
-                        >
-                          {sendingVoteTx ? "Sending..." : `Sign & Send (${voteResult.transactions.length} tx)`}
-                        </button>
-                        <span className="text-[9px] text-gray-600">
-                          {voteResult.transactions.length > 1 && "Multi-tx flow — aborts on failure"}
-                        </span>
+                      <div className="space-y-3">
+                        {showVoteTxConfirm && (
+                          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 space-y-2">
+                            <p className="text-xs text-amber-400 font-semibold">Mainnet Transaction</p>
+                            <p className="text-[10px] text-gray-400">This costs real SOL and cannot be reversed. Confirm to proceed.</p>
+                            <div className="flex items-center gap-3">
+                              <button onClick={handleSendVoteTx} disabled={sendingVoteTx}
+                                className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-40 transition-colors">
+                                {sendingVoteTx ? "Sending..." : "Confirm & Send"}
+                              </button>
+                              <button onClick={() => setShowVoteTxConfirm(false)}
+                                className="text-xs text-gray-500 hover:text-gray-300 transition-colors">Cancel</button>
+                            </div>
+                          </div>
+                        )}
+                        {!showVoteTxConfirm && (
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={handleSendVoteTx}
+                              disabled={sendingVoteTx}
+                              className="px-5 py-2 rounded-lg text-xs font-semibold bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-40 transition-colors"
+                            >
+                              {sendingVoteTx ? "Sending..." : `Sign & Send (${voteResult.transactions.length} tx)`}
+                            </button>
+                            <span className="text-[9px] text-gray-600">
+                              {voteResult.transactions.length > 1 && "Multi-tx flow — aborts on failure"}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <p className="text-[10px] text-gray-500">
@@ -360,20 +383,41 @@ export default function ProposalDetailPage() {
 
       {canExecute && (
         <Card glow="yellow" className="border-amber-500/10">
-          <CardBody>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-amber-300 font-semibold">Ready to Execute</p>
-                <p className="text-xs text-gray-500 mt-0.5">This proposal succeeded and can be executed on-chain.</p>
+          <CardBody className="space-y-4">
+            {showExecConfirm ? (
+              <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
+                <p className="text-sm text-amber-400 font-semibold">
+                  {isMainnetNetwork() ? "Execute on Mainnet-Beta?" : "Execute on-chain?"}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {isMainnetNetwork()
+                    ? "This costs real SOL and cannot be reversed."
+                    : "This action cannot be undone."}
+                </p>
+                <div className="flex items-center gap-3">
+                  <button onClick={handleExecute} disabled={executing}
+                    className="px-5 py-2 rounded-lg text-xs font-semibold bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-40 transition-colors">
+                    {executing ? "Executing..." : "Confirm Execute"}
+                  </button>
+                  <button onClick={() => setShowExecConfirm(false)}
+                    className="text-xs text-gray-500 hover:text-gray-300 transition-colors">Cancel</button>
+                </div>
               </div>
-              <button
-                onClick={handleExecute}
-                disabled={executing}
-                className="px-5 py-2 rounded-lg text-xs font-semibold bg-amber-500/10 border border-amber-500/20 text-amber-300 hover:bg-amber-500/20 disabled:opacity-40 transition-colors"
-              >
-                {executing ? "Executing..." : "Execute Proposal"}
-              </button>
-            </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-amber-300 font-semibold">Ready to Execute</p>
+                  <p className="text-xs text-gray-500 mt-0.5">This proposal succeeded and can be executed on-chain.</p>
+                </div>
+                <button
+                  onClick={handleExecute}
+                  disabled={executing}
+                  className="px-5 py-2 rounded-lg text-xs font-semibold bg-amber-500/10 border border-amber-500/20 text-amber-300 hover:bg-amber-500/20 disabled:opacity-40 transition-colors"
+                >
+                  {executing ? "Executing..." : "Execute Proposal"}
+                </button>
+              </div>
+            )}
             {execResult && (
               <div className="mt-4 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
                 <p className="text-[10px] text-emerald-400 mb-1">Transaction sent</p>

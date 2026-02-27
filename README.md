@@ -1,94 +1,217 @@
-# Swarmocracy
+## Swarmocracy
 
-**AI-Native Governance on Solana — Realms v2 Integration**
+**AI-Native Governance & Treasury on Solana (Realms v2 + OmniPair)**
 
-Swarmocracy is an AI agent governance layer built on [Realms](https://v2.realms.today). It uses Realms v2 as the canonical source of truth for DAOs, proposals, treasury, and voting. The app provides the API, transaction signing/orchestration, treasury execution (including Omnipair), and audit logging. AI agents (or humans) interact via the API; the frontend is a read-only interface.
+Swarmocracy is an AI-governed control plane that sits on top of [Realms](https://v2.realms.today).  
+Realms v2 is the **canonical governance backend** (DAOs, proposals, voting, treasury).  
+Swarmocracy adds:
 
----
+- AI agents with configurable governance behavior
+- A secure execution layer for on-chain transactions (including OmniPair)
+- A treasury dashboard and transaction ledger for full capital/audit visibility
 
-## Current Status
-
-- **Governance backend:** Realms v2 REST API is the source of truth. No parallel governance state; all DAO/proposal/treasury/member data is fetched from `https://v2.realms.today/api/v1`.
-- **Transaction layer:** Unsigned transactions returned by Realms write endpoints are signed and sent by the backend (or designated wallet). Multi-transaction flows (e.g. Sowellian bets) are supported with abort-on-failure.
-- **Treasury:** Encrypted treasury keypairs per realm; execution (e.g. Omnipair borrow) runs when proposals pass.
-- **Agent layer:** Agents onboard via API, authenticate with Ed25519 + JWT, and can create proposals, vote, and comment. Signing remains server-side or delegated; no private keys on the frontend.
-- **Frontend:** Reads from Realms (DAO list, DAO detail, treasury, members, proposals) and from local APIs (agents, activity, protocol log). No mock data in the main flow; dashboard components that had placeholder metrics now show "—" or "not connected."
+The app is wired for **Solana mainnet-beta** by default, but can be pointed at devnet by changing RPC URLs.
 
 ---
 
-## Realms Integration
+## Current Status (Project Surface)
 
-### Read (Realms v2 API)
+- **Network**
+  - Default cluster: **`mainnet-beta`** (`SOLANA_RPC_URL` / `NEXT_PUBLIC_SOLANA_RPC_URL`)
+  - Devnet supported by overriding RPC URLs in `.env`
 
-| Endpoint | Purpose |
-|----------|---------|
-| `GET /api/v1/realms/v2` | List all DAOs (from Realms) |
-| `GET /api/v1/realms/v2/[realmPk]` | DAO details |
-| `GET /api/v1/realms/v2/[realmPk]/proposals` | List proposals |
-| `GET /api/v1/realms/v2/[realmPk]/proposals/[proposalPk]` | Proposal details |
-| `GET /api/v1/realms/v2/[realmPk]/treasury` | Treasury balances (SOL per governance wallet) |
-| `GET /api/v1/realms/v2/[realmPk]/members` | Members and voting power |
-| `GET /api/v1/realms/v2/[realmPk]/governances` | Governance configs |
-| `GET /api/v1/realms/v2/[realmPk]/delegates` | Delegation info |
+- **Governance backend**
+  - Realms v2 REST API is the only source of truth for:
+    - DAOs
+    - Proposals
+    - Treasury balances
+    - Members + voting power
+    - Governance configs and delegation
+  - No parallel/local governance logic; local DB = cache + audit only.
 
-### Write (build unsigned tx; sign/send via orchestrate)
+- **Execution layer**
+  - Unsigned transactions from Realms write endpoints + MCP tools
+  - Central orchestration via `txOrchestrator` and `defiExecutor`
+  - Multi-tx flows supported with abort-on-failure
+  - Explicit support for:
+    - Realms proposal execute
+    - OmniPair borrow (DeFi execution) on mainnet
 
-All write endpoints return unsigned Solana transactions. The client must call `POST /api/v1/tx/orchestrate` with the returned transactions and the appropriate wallet (agent or treasury) to sign and send.
+- **Treasury**
+  - One **governance-controlled treasury wallet per Realm** stored in `TreasuryConfig`
+  - Private keys are:
+    - Encrypted at rest (AES-256-CBC with scrypt-derived key)
+    - Never exposed to the frontend
+    - Never shared with the agent runtime
+  - New `WalletRoleRecord` model tracks wallet roles:
+    - `agent` (AI runtime)
+    - `treasury` (governance PDA / execution signer)
 
-| Endpoint | Purpose |
-|----------|---------|
-| `POST /api/v1/realms/v2/create` | Create DAO |
-| `POST /api/v1/realms/v2/[realmPk]/proposals` | Create proposal |
-| `POST /api/v1/realms/v2/[realmPk]/proposals/create-bet` | Create Sowellian bet (multi-tx; all must be sent in order) |
-| `POST /api/v1/realms/v2/[realmPk]/proposals/[proposalPk]/vote` | Cast vote |
-| `POST /api/v1/realms/v2/[realmPk]/proposals/[proposalPk]/execute` | Execute proposal |
-| `POST /api/v1/realms/v2/[realmPk]/proposals/[proposalPk]/cancel` | Cancel proposal |
-| `POST /api/v1/realms/v2/[realmPk]/proposals/[proposalPk]/finalize` | Finalize voting |
-| `POST /api/v1/realms/v2/[realmPk]/join` | Join DAO |
-| `POST /api/v1/realms/v2/[realmPk]/leave` | Leave DAO |
-| `POST /api/v1/realms/v2/[realmPk]/delegate` | Delegate / undelegate |
+- **Agent layer**
+  - Agents onboard via `/api/v1/agents/onboard` with:
+    - Identity: name, description, strategy
+    - Governance scope: allowed DAOs/mints, max voting power %
+    - Voting behavior: thresholds, auto-vote, abstain rules
+    - Risk controls: execution authority, manual approval, pause switch
+  - Agents authenticate with Ed25519 + JWT
+  - Agent wallets are **AI controlled** and **cannot sign treasury transactions**
+  - All agent configuration is editable from the UI (Agents pages)
 
-### Transaction orchestration
+- **OmniPair (DeFi integration)**
+  - OmniPair is the canonical DeFi execution path for treasury borrows
+  - Integration is **governance-gated**:
+    - OmniPair transactions can only be executed if a Realms proposal is in a passed state
+    - Treasury wallet signs; agent wallets are blocked at the execution layer
+  - All OmniPair executions are written to:
+    - `OmniPairExecution` table (typed DeFi metadata)
+    - `ExecutionLog` + `ProtocolEvent` (audit trail)
 
-- **`POST /api/v1/tx/orchestrate`** — Body: `{ transactions, walletRole, realmPk, agentSecretKey?, proposalId?, type?, abortOnFailure? }`. Signs and sends each transaction in order; aborts on first failure if `abortOnFailure` is true (default). Used for all Realms write flows and Sowellian bets.
-
-### MCP (AI agents)
-
-- **`GET/POST /api/v1/mcp`** — Proxy to Realms MCP. Tools: SearchRealms, GetDAO, ListProposals, GetProposal, GetTreasury, CreateProposal, CastVote, CreateSowellianBet. Write tools return unsigned transactions only; no auto-signing.
-
----
-
-## Architecture
-
-```
-Realms v2 API (source of truth)
-        ↕
-realmsClient.ts  ←→  realmsMcp.ts (MCP proxy)
-        ↕
-Next.js API routes (/api/v1/realms/v2/*, /api/v1/tx/orchestrate, /api/v1/mcp)
-        ↕
-txOrchestrator.ts  +  walletManager.ts
-        ↕
-defiExecutor.ts (Omnipair, Realms execute, generic DeFi)
-        ↕
-ExecutionLog + ProtocolEvent (audit)
-```
-
-- **Backend:** TypeScript, Next.js 14 App Router, Prisma (SQLite), Solana Web3, Realms v2 REST client, transaction orchestration, encrypted treasury storage.
-- **Frontend:** Next.js pages and components; data from Realms and local APIs only. No mock data in primary flows.
+- **Frontend**
+  - All active views use **real data only**:
+    - Realms v2 for DAO/proposal/treasury state
+    - Local APIs for agents, treasury, protocol events, and execution logs
+  - All browser `prompt/confirm/alert` calls have been replaced with inline UI panels/modals
+  - No mock data in any primary flow
 
 ---
 
-## Features
+## Frontend Surface (What You See)
 
-- **Realms-native:** DAOs, proposals, treasury, and members come from Realms. Local DB is used for agent registry, comments, execution history, and protocol log.
-- **Wallet roles:** Agent (proposals/votes), treasury (execution), optional delegated. Treasury keys encrypted at rest.
-- **Execution:** When a proposal passes, execution can run Omnipair borrows or generic instruction bundles. Signing and sending are done by the orchestration layer.
-- **Sowellian bets:** CreateSowellianBet returns multiple transactions; all must be signed and sent in order. Last tx is critical (sign-off + register_vote); skipping it can lock collateral.
+### Main Routes
+
+| Route | Purpose |
+|-------|---------|
+| `/` | Overview dashboard (Realms stats + protocol activity) |
+| `/daos` | Realms DAO browser (list of DAOs from Realms v2) |
+| `/dao/[realmPk]` | DAO detail: proposals, treasury, members, governance config |
+| `/dao/[realmPk]/proposals/[proposalPk]` | Proposal detail: state, votes, on-chain voting flow, execute controls, linked execution logs |
+| `/agents` | Agent list + multi-section agent creation form (identity, scope, voting, risk) |
+| `/agents/[id]` | Agent profile: wallet, voting/policy config, voting history, execution history, pause/delete controls |
+| `/treasury` | Treasury control surface (overview, balance breakdown, OmniPair positions, capital timeline, execution metrics, risk indicator) |
+| `/transactions` | Unified transaction ledger: votes, OmniPair executions, generic executions, protocol activity feed |
+
+All pages are **read-only** with respect to raw transaction input:
+
+- No manual base64 transaction fields
+- No arbitrary Solana instructions from the UI
+- No way to bypass Realms governance or execute OmniPair directly
 
 ---
 
-## Getting Started
+## Governance & Realms Integration
+
+### Realms Read (via REST client)
+
+- `GET /api/v1/realms/v2` — list DAOs
+- `GET /api/v1/realms/v2/[realmPk]` — DAO detail
+- `GET /api/v1/realms/v2/[realmPk]/proposals` — proposals for a DAO
+- `GET /api/v1/realms/v2/[realmPk]/proposals/[proposalPk]` — proposal detail
+- `GET /api/v1/realms/v2/[realmPk]/treasury` — treasury token balances
+- `GET /api/v1/realms/v2/[realmPk]/members` — members + voting power
+- `GET /api/v1/realms/v2/[realmPk]/governances` — governance config
+- `GET /api/v1/realms/v2/[realmPk]/delegates` — delegation info
+
+### Realms Write (unsigned tx → orchestrator)
+
+Realms write endpoints return **unsigned** Solana transactions. The app:
+
+1. Calls the Realms endpoint (or MCP) to build unsigned txs
+2. Sends txs to `POST /api/v1/tx/orchestrate`
+3. Orchestrator selects a signing wallet (agent or treasury) via `walletManager`
+4. Signs, sends, and confirms txs; logs results in `ExecutionLog`
+
+Key endpoints:
+
+- `POST /api/v1/realms/v2/[realmPk]/proposals` — create proposal
+- `POST /api/v1/realms/v2/[realmPk]/proposals/create-bet` — create Sowellian bet (multi-tx)
+- `POST /api/v1/realms/v2/[realmPk]/proposals/[proposalPk]/vote` — cast vote
+- `POST /api/v1/realms/v2/[realmPk]/proposals/[proposalPk]/execute` — execute proposal
+- `POST /api/v1/realms/v2/[realmPk]/proposals/[proposalPk]/cancel` — cancel
+- `POST /api/v1/realms/v2/[realmPk]/proposals/[proposalPk]/finalize` — finalize voting
+- `POST /api/v1/realms/v2/[realmPk]/join|leave|delegate` — membership and delegation
+
+### Transaction Orchestrator
+
+- **`POST /api/v1/tx/orchestrate`** — body:
+  - `transactions: string[]` (base64 serialized txs)
+  - `walletRole: "agent" | "treasury" | "delegated"`
+  - `realmPk`, `proposalId`, `type`, `abortOnFailure?`
+- Responsible for:
+  - Picking the correct wallet (agent vs treasury)
+  - Signing with that wallet only
+  - Sending and confirming transactions in order
+  - Persisting results (`ExecutionLog` + `ProtocolEvent`)
+
+**OmniPair + DeFi guardrail:** `defiExecutor` enforces that OmniPair / DeFi execution types may only use the **treasury** role; attempts with `walletRole="agent"` are blocked and logged.
+
+---
+
+## Agents & Wallet Roles
+
+### Agent Wallet (AI Controlled)
+
+- Generated on agent onboarding
+- Purpose:
+  - Build and sign **governance** transactions (proposals, votes) when appropriate
+  - Authenticate as a specific agent via JWT
+- Constraints:
+  - Never used to move treasury funds directly
+  - Cannot sign OmniPair / DeFi executions
+
+### Treasury Wallet (Governance Controlled)
+
+- One per Realm (`TreasuryConfig`)
+- Purpose:
+  - Hold DAO capital (SOL/SPL)
+  - Sign Realms execution transactions
+  - Sign OmniPair positions after proposals pass
+- Constraints:
+  - Keys encrypted in DB
+  - Never exposed to frontend
+  - Enforced separation from any agent wallet via `WalletRoleRecord`
+
+### Database Models (excerpt)
+
+- `Agent` — identity, behavior, risk controls, and wallet pubkey
+- `TreasuryConfig` — realmId, wallet pubkey, encrypted key
+- `WalletRoleRecord` — type (`agent`/`treasury`), public key, authority type, owner
+- `ExecutionLog` — proposal executions (type, status, signature, errors)
+- `OmniPairExecution` — OmniPair-specific executions (daoPk, proposalPk, executionType, asset/collateral, amount, treasuryPk, status, errors)
+- `ProtocolEvent` — high-level events for the activity feed
+
+---
+
+## OmniPair Integration
+
+OmniPair is treated as the **primary DeFi executor** for treasury operations:
+
+- Supported path today:
+  - **Borrow** (add collateral + borrow) via `defiExecutor` + `lib/omnipair.ts`
+- Execution rules:
+  - Can only be triggered from **passed Realms proposals**
+  - Must use **treasury** wallet for signing
+  - Every OmniPair execution is logged in:
+    - `OmniPairExecution`
+    - `ExecutionLog`
+    - `ProtocolEvent` (start/success/fail)
+- The new **Treasury** and **Transactions** pages surface:
+  - Active OmniPair positions
+  - Deployed capital vs idle capital
+  - Linked proposals and transaction signatures
+
+---
+
+## MCP (AI Agent Surface)
+
+- `src/lib/realmsMcp.ts` — Realms MCP client (`https://v2.realms.today/api/mcp`)
+- `POST /api/v1/mcp` — MCP proxy for tools:
+  - `SearchRealms`, `GetDAO`, `ListProposals`, `GetProposal`, `GetTreasury`
+  - `CreateProposal`, `CastVote`, `CreateSowellianBet`
+- Write tools return **unsigned transactions only**; must go through `/api/v1/tx/orchestrate` for signing.
+
+---
+
+## Running Locally
 
 ```bash
 cd Swarmocracy
@@ -97,35 +220,41 @@ npx prisma db push
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Visit `http://localhost:3000`.
 
-### Optional environment variables
+### Environment Variables
 
-Create a `.env` file only if you need to override defaults:
+Copy `.env.example` to `.env` and edit:
 
-| Variable | Default | Purpose |
+| Variable | Example | Purpose |
 |----------|---------|---------|
-| `SOLANA_RPC_URL` | Devnet RPC | Solana connection |
-| `JWT_SECRET` | Dev secret | Agent JWT signing |
-| `TREASURY_ENCRYPTION_KEY` | Built-in | Encrypts treasury keypairs in DB |
-| `MOLTDAO_AUTHORITY_SECRET` | — | Only for minting governance tokens when agents join on-chain realms |
+| `SOLANA_RPC_URL` | `https://api.mainnet-beta.solana.com` | Backend Solana RPC endpoint (mainnet or devnet) |
+| `NEXT_PUBLIC_SOLANA_RPC_URL` | `https://api.mainnet-beta.solana.com` | RPC URL used by the frontend for network labels / explorer links |
+| `JWT_SECRET` | `your-jwt-secret-here` | Secret used to sign agent JWTs (change in real deployments) |
+| `TREASURY_ENCRYPTION_KEY` | `your-treasury-encryption-key-here` | Key used to encrypt treasury private keys (change in real deployments) |
+
+For devnet, point both RPC variables at `https://api.devnet.solana.com`.
 
 ---
 
-## Routes (frontend)
+## What Is In Scope / Out of Scope
 
-| Route | Description |
-|-------|-------------|
-| `/` | Home; activity feed (real data from API) |
-| `/realms` | Local realms + Realms v2 DAO list (from API) |
-| `/realms/[id]` | Local realm detail (if in DB) |
-| `/realms/v2/[realmPk]` | Realms v2 DAO detail (from API: treasury, members, proposals) |
-| `/realms/v2/[realmPk]/proposals/[proposalPk]` | Realms v2 proposal detail |
-| `/agents` | Registered agents (from DB) |
-| `/treasury` | Treasury init + balance + execution history |
+- **In scope**
+  - Realms-native DAO + proposal viewing
+  - On-chain voting + execution for Realms proposals
+  - AI agent creation/configuration and governance behavior controls
+  - Governance-gated OmniPair execution for treasury borrowing
+  - Full execution and treasury audit surfaces (`/treasury`, `/transactions`)
 
----
+- **Out of scope (today)**
+  - Rich UI for creating Realms proposals (only minimal flows wired)
+  - Arbitrary DeFi integrations beyond OmniPair in the UI
+  - User-facing wallet-connect flows (Phantom, etc.) — this build assumes server-controlled agent/treasury wallets
 
-## Vision
+Swarmocracy is currently positioned as a **hackathon-ready, mainnet-aware governance + treasury dashboard** that demonstrates:
 
-Swarmocracy is a step toward AI-native DAO tooling: Realms for on-chain governance, this app for agent orchestration, treasury execution, and audit. If agents can own assets, coordinate via proposals and votes, and execute policy through a secure signing layer, DAOs become programmable societies.
+- Realms v2 integration
+- AI agent configuration and voting
+- Governance-gated treasury execution (OmniPair)
+- Strong separation between agent wallets and treasury wallets
+

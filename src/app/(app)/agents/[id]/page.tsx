@@ -111,6 +111,10 @@ export default function AgentDetailPage() {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [solBalance, setSolBalance] = useState<number | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [showPausePanel, setShowPausePanel] = useState(false);
+  const [pauseReason, setPauseReason] = useState("");
 
   const fetchAgent = useCallback(async () => {
     try {
@@ -153,21 +157,38 @@ export default function AgentDetailPage() {
     finally { setSaving(false); }
   }
 
-  async function handlePause() {
+  function handlePauseClick() {
     if (!agent) return;
-    const reason = agent.paused ? null : prompt("Reason for pausing (optional):") ?? "Manually paused";
-    await patchAgent({ paused: !agent.paused, pausedReason: reason });
+    if (agent.paused) {
+      patchAgent({ paused: false, pausedReason: null });
+    } else {
+      setShowPausePanel(true);
+      setPauseReason("");
+    }
   }
 
-  async function handleDelete() {
-    if (!agent || !confirm(`Delete "${agent.name}"? This removes the agent and all its memberships.`)) return;
+  async function confirmPause() {
+    await patchAgent({ paused: true, pausedReason: pauseReason.trim() || "Manually paused" });
+    setShowPausePanel(false);
+    setPauseReason("");
+  }
+
+  async function confirmDelete() {
+    if (!agent) return;
     setDeleting(true);
+    setDeleteError(null);
     try {
       const res = await fetch(`/api/v1/agents/${id}`, { method: "DELETE" });
       if (res.ok) router.push("/agents");
-      else alert("Failed to delete agent");
-    } catch { alert("Failed to delete agent"); }
-    finally { setDeleting(false); }
+      else {
+        const d = await res.json().catch(() => ({}));
+        setDeleteError(d.error || "Failed to delete agent");
+      }
+    } catch {
+      setDeleteError("Failed to delete agent");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   if (loading) return <SkeletonRows count={8} />;
@@ -203,7 +224,7 @@ export default function AgentDetailPage() {
           {saveMsg && (
             <span className={`text-[10px] ${saveMsg === "Saved" ? "text-emerald-400" : "text-rose-400"}`}>{saveMsg}</span>
           )}
-          <button onClick={handlePause} disabled={saving}
+          <button onClick={handlePauseClick} disabled={saving}
             className={`px-3 py-1.5 rounded-lg text-xs border transition-colors disabled:opacity-40 ${
               agent.paused
                 ? "text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/10"
@@ -211,7 +232,7 @@ export default function AgentDetailPage() {
             }`}>
             {agent.paused ? "Resume" : "Pause"}
           </button>
-          <button onClick={handleDelete} disabled={deleting}
+          <button onClick={() => { setShowDeleteConfirm(true); setDeleteError(null); }} disabled={deleting}
             className="px-3 py-1.5 rounded-lg text-xs text-rose-400 border border-rose-500/20 hover:bg-rose-500/10 disabled:opacity-40 transition-colors">
             {deleting ? "..." : "Delete"}
           </button>
@@ -228,10 +249,49 @@ export default function AgentDetailPage() {
               {agent.pausedAt && <span>Paused {new Date(agent.pausedAt).toLocaleString()}</span>}
             </p>
           </div>
-          <button onClick={handlePause} disabled={saving}
+          <button onClick={handlePauseClick} disabled={saving}
             className="px-4 py-2 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-40 transition-colors">
             Resume Agent
           </button>
+        </div>
+      )}
+
+      {/* Pause Panel */}
+      {showPausePanel && (
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
+          <p className="text-sm text-amber-400 font-semibold">Pause Agent</p>
+          <p className="text-xs text-gray-400">This will immediately stop the agent from voting or executing. You can resume at any time.</p>
+          <div>
+            <label className="text-[10px] text-gray-500 uppercase tracking-[0.15em] font-semibold block mb-1.5">Reason (optional)</label>
+            <input type="text" value={pauseReason} onChange={(e) => setPauseReason(e.target.value)}
+              placeholder="e.g. Under review, suspected misconfiguration..."
+              className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3.5 py-2 text-sm text-white placeholder-gray-600 focus:border-amber-500/40 focus:outline-none transition-all" />
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={confirmPause} disabled={saving}
+              className="px-4 py-2 rounded-lg text-xs font-semibold bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-40 transition-colors">
+              {saving ? "Pausing..." : "Confirm Pause"}
+            </button>
+            <button onClick={() => setShowPausePanel(false)}
+              className="px-4 py-2 rounded-lg text-xs text-gray-500 hover:text-gray-300 transition-colors">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation */}
+      {showDeleteConfirm && (
+        <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-4 space-y-3">
+          <p className="text-sm text-rose-400 font-semibold">Delete &ldquo;{agent.name}&rdquo;?</p>
+          <p className="text-xs text-gray-400">This removes the agent and all its memberships. This action cannot be undone.</p>
+          {deleteError && <p className="text-xs text-rose-400">{deleteError}</p>}
+          <div className="flex items-center gap-3">
+            <button onClick={confirmDelete} disabled={deleting}
+              className="px-4 py-2 rounded-lg text-xs font-semibold bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-40 transition-colors">
+              {deleting ? "Deleting..." : "Confirm Delete"}
+            </button>
+            <button onClick={() => setShowDeleteConfirm(false)}
+              className="px-4 py-2 rounded-lg text-xs text-gray-500 hover:text-gray-300 transition-colors">Cancel</button>
+          </div>
         </div>
       )}
 

@@ -153,6 +153,8 @@ export default function TreasuryPage() {
   const [initError, setInitError] = useState<string | null>(null);
   const [expandedTimeline, setExpandedTimeline] = useState<Set<string>>(new Set());
   const [expandedExec, setExpandedExec] = useState<Set<string>>(new Set());
+  const [showInitForm, setShowInitForm] = useState(false);
+  const [initRealmId, setInitRealmId] = useState("");
 
   const fetchData = useCallback(async () => {
     try {
@@ -175,19 +177,22 @@ export default function TreasuryPage() {
   }, [fetchData]);
 
   async function handleInitialize() {
-    const realmId = prompt("Enter the DAO Realm public key to initialize a treasury for:");
-    if (!realmId?.trim()) return;
+    if (!initRealmId.trim()) return;
     setInitializing(true);
     setInitError(null);
     try {
       const res = await fetch("/api/v1/treasury/initialize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ realmId: realmId.trim() }),
+        body: JSON.stringify({ realmId: initRealmId.trim() }),
       });
       const d = await res.json();
       if (!res.ok) setInitError(d.error || "Failed to initialize");
-      else fetchData();
+      else {
+        setShowInitForm(false);
+        setInitRealmId("");
+        fetchData();
+      }
     } catch (e) { setInitError(String(e)); }
     finally { setInitializing(false); }
   }
@@ -223,17 +228,45 @@ export default function TreasuryPage() {
 
       {/* ─── Section A: Treasury Overview (Summary Grid) ─── */}
       {noTreasury && !data?.treasury ? (
-        <Card glow="purple" className="p-8 text-center">
-          <svg className="w-10 h-10 mx-auto mb-3 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <p className="text-sm text-gray-400 mb-1">No treasury wallet configured</p>
-          <p className="text-xs text-gray-600 mb-4">Initialize a governance-controlled treasury wallet to enable on-chain execution.</p>
-          <button onClick={handleInitialize} disabled={initializing}
-            className="px-5 py-2 rounded-lg text-xs font-semibold bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-40 transition-colors">
-            {initializing ? "Initializing..." : "Initialize Treasury"}
-          </button>
-          {initError && <p className="text-xs text-rose-400 mt-3">{initError}</p>}
+        <Card glow="purple">
+          <CardBody className="space-y-4">
+            <div className="text-center">
+              <svg className="w-10 h-10 mx-auto mb-3 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-sm text-gray-400 mb-1">No treasury wallet configured</p>
+              <p className="text-xs text-gray-600 mb-4">Initialize a governance-controlled treasury wallet to enable on-chain execution.</p>
+            </div>
+
+            {!showInitForm ? (
+              <div className="text-center">
+                <button onClick={() => setShowInitForm(true)}
+                  className="px-5 py-2 rounded-lg text-xs font-semibold bg-violet-600 text-white hover:bg-violet-500 transition-colors">
+                  Initialize Treasury
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3 max-w-md mx-auto">
+                <div>
+                  <label className="text-[10px] text-gray-500 uppercase tracking-[0.15em] font-semibold block mb-1.5">DAO Realm Public Key</label>
+                  <input type="text" value={initRealmId} onChange={(e) => setInitRealmId(e.target.value)}
+                    placeholder="e.g. B1CxhV1khhj7n5mi5hebbivesqH9mvXr5Hfh2nD2UCh6"
+                    className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3.5 py-2 text-sm text-white placeholder-gray-600 font-mono focus:border-violet-500/40 focus:outline-none transition-all"
+                    autoFocus />
+                  <p className="text-[9px] text-gray-600 mt-1">Enter the Realm public key of the DAO this treasury will serve.</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button onClick={handleInitialize} disabled={initializing || !initRealmId.trim()}
+                    className="px-5 py-2 rounded-lg text-xs font-semibold bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-40 transition-colors">
+                    {initializing ? "Initializing..." : "Create Treasury Wallet"}
+                  </button>
+                  <button onClick={() => { setShowInitForm(false); setInitError(null); }}
+                    className="px-4 py-2 rounded-lg text-xs text-gray-500 hover:text-gray-300 transition-colors">Cancel</button>
+                </div>
+                {initError && <p className="text-xs text-rose-400">{initError}</p>}
+              </div>
+            )}
+          </CardBody>
         </Card>
       ) : data && (
         <>
