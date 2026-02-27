@@ -31,6 +31,14 @@ export async function POST(request: Request) {
       );
     }
 
+    // Early 501 for unimplemented execution types (before governance gate)
+    if (executionType !== "borrow") {
+      return NextResponse.json(
+        { error: `${executionType} execution not yet enabled. Only borrow is live.` },
+        { status: 501 }
+      );
+    }
+
     // Governance gate: verify proposal passed
     const proposal = await prisma.proposalCache.findUnique({ where: { id: proposalPk } });
 
@@ -77,23 +85,15 @@ export async function POST(request: Request) {
     try {
       let txSignature: string;
 
-      if (executionType === "borrow") {
-        const borrowParams: BorrowParams = {
-          pairAddress: params?.pairAddress,
-          collateralMint: params?.collateralMint || collateralMint,
-          collateralAmount: params?.collateralAmount || amount,
-          borrowMint: params?.borrowMint || assetMint,
-          borrowAmount: params?.borrowAmount || amount,
-        };
-        const result = await executeBorrow(keypair, borrowParams);
-        txSignature = result.txSignature;
-      } else {
-        // For lend/repay/refinance — placeholder until on-chain programs are verified
-        return NextResponse.json(
-          { error: `${executionType} execution not yet enabled. Only borrow is live.` },
-          { status: 501 }
-        );
-      }
+      const borrowParams: BorrowParams = {
+        pairAddress: params?.pairAddress,
+        collateralMint: params?.collateralMint || collateralMint,
+        collateralAmount: params?.collateralAmount || amount,
+        borrowMint: params?.borrowMint || assetMint,
+        borrowAmount: params?.borrowAmount || amount,
+      };
+      const result = await executeBorrow(keypair, borrowParams);
+      txSignature = result.txSignature;
 
       // Update execution record
       await prisma.omniPairExecution.update({
