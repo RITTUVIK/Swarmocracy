@@ -1,7 +1,7 @@
 /**
  * Generic DeFi execution layer.
  * Supports arbitrary instruction bundles from Realms proposals:
- *   - Omnipair (borrow/collateral)
+ *   - OmniPair (borrow/collateral)
  *   - Jupiter (swaps, limit orders, DCA)
  *   - Drift (perps, deposits)
  *   - Kamino (lending)
@@ -10,7 +10,7 @@
  *   - Any arbitrary Solana program
  *
  * Execution is generic: sign and send whatever instructions the proposal contains.
- * Omnipair-specific logic is preserved as a specialized handler.
+ * OmniPair-specific logic is preserved as a specialized handler.
  */
 
 import { Keypair } from "@solana/web3.js";
@@ -145,7 +145,7 @@ async function executeOmnipairBorrow(
     !borrowParams.borrowMint ||
     !borrowParams.borrowAmount
   ) {
-    throw new Error("Missing required Omnipair borrow parameters");
+    throw new Error("Missing required OmniPair borrow parameters");
   }
 
   const omniExec = await prisma.omniPairExecution.create({

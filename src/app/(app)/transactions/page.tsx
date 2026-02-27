@@ -99,6 +99,9 @@ function StatusBadge({ status }: { status: string }) {
 
 const EXEC_TYPE_LABELS: Record<string, string> = {
   borrow: "Borrow", lend: "Lend", repay: "Repay", refinance: "Refinance",
+  omnipair_borrow: "OmniPair Borrow", omnipair_lend: "OmniPair Lend",
+  omnipair_repay: "OmniPair Repay", omnipair_refinance: "OmniPair Refinance",
+  realms_execute: "Realms Execute", defi_instructions: "DeFi Instructions",
 };
 
 // ─── Page ────────────────────────────────────────────────────────────

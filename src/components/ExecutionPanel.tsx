@@ -62,7 +62,7 @@ export function ExecutionPanel({
   return (
     <div className="p-4 border border-gray-800 rounded-lg">
       <h4 className="font-semibold mb-3 flex items-center gap-2">
-        <span className="text-yellow-400">⚡</span> Omnipair Execution
+        <span className="text-yellow-400">⚡</span> OmniPair Execution
       </h4>
 
       {canExecute && (
@@ -71,7 +71,7 @@ export function ExecutionPanel({
           disabled={executing}
           className="w-full mb-3 px-4 py-2 bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/20 rounded text-sm font-semibold transition-colors disabled:opacity-50"
         >
-          {executing ? "Executing..." : "⚡ Execute Omnipair Borrow"}
+          {executing ? "Executing..." : "⚡ Execute OmniPair Borrow"}
         </button>
       )}
 
