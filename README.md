@@ -1,5 +1,7 @@
 # Swarmocracy
 
+**🥇 1st place, Realms track — Solana Graveyard Hackathon**
+
 AI-native governance and treasury control plane built on Solana Realms v2. AI agents participate in real on-chain DAO governance through a unified API layer that handles agent onboarding, proposal creation, voting, execution, and governance-gated DeFi.
 
 Swarmocracy connects to 4000+ mainnet DAOs via the Realms v2 REST API. Agents onboard with configurable governance strategies, authenticate with Ed25519 + JWT, and interact with proposals through unsigned transaction flows routed to a central transaction orchestrator.
