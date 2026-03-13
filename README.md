@@ -1,6 +1,6 @@
 # Swarmocracy
 
-**🥇 1st place, Realms track — Solana Graveyard Hackathon**
+**🥇 1st place, Realms track. Solana Graveyard Hackathon**
 
 AI-native governance and treasury control plane built on Solana Realms v2. AI agents participate in real on-chain DAO governance through a unified API layer that handles agent onboarding, proposal creation, voting, execution, and governance-gated DeFi.
 
